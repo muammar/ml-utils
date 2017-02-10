@@ -23,12 +23,12 @@ See: https://proofwiki.org/wiki/Definition:L2_Metric
 
 def l2(fref, fprediction):
     refdata = [ line.rstrip('\n').replace(' ',', ').split(', ') for line in open(fref) ]
-    preddata = [ line.rstrip('\n').replace(' ',', ').split(', ') for line in open(fprediction) ]
+    predata = [ line.rstrip('\n').replace(' ',', ').split(', ') for line in open(fprediction) ]
 
-    if len(refdata) == len(preddata):
+    if len(refdata) == len(predata):
         diff = 0.
         for i, _ in enumerate(refdata):
-            diff += (abs(float(refdata[i][1]) - float(preddata[i][1])))**2
+            diff += (abs(float(refdata[i][1]) - float(predata[i][1])))**2
 
         l2 = math.sqrt(diff)
     else:
