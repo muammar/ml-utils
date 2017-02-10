@@ -8,8 +8,10 @@ import re
 
 listing = glob.glob(str(sys.argv[1])+'/*.amp')
 listing = [ element for element in listing if not 'initial' in element ]
+failed = [ element for element in listing if 'untrained' in element ]
 
-print('Number of Amp successful trainings: ',len(listing))
+print('  Number of Amp successful trainings: ', len(listing))
+print('Number of Amp unsuccessful trainings: ', len(failed))
 
 done = 0
 remaining = 0
@@ -21,5 +23,5 @@ for element in listing:
     else:
         remaining += 1
 
-print('Predictions done: ', done)
-print('Remaining calculations, ', remaining)
+print('      Predictions done: ', done)
+print('Remaining calculations: ', remaining)
