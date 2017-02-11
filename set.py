@@ -37,6 +37,12 @@ def compare_strings(string1, string2):
     similarity = fuzz.ratio(str(string1), str(string2))
     return similarity
 
-def pair_iteration(listofelements):
+def get_pairs(listofelements):
+    """
+    Returns a lits of possible pairs in a list.
+    """
+    pairs = []
     for pair in itertools.product(listofelements, repeat=2):
-        return pair
+        pairs.append(pair)
+    pairs = [list(x) for x in pairs]
+    return pairs
