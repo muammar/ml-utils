@@ -34,15 +34,19 @@ def compare_strings(string1, string2):
     """
     Compare similarity between strings. Useful for doing some clustering work.
     """
-    similarity = fuzz.ratio(str(string1), str(string2))
+    similarity = int(fuzz.ratio(str(string1), str(string2)))
     return similarity
 
-def get_pairs(listofelements):
+def get_pairs(lst):
     """
     Returns a lits of possible pairs in a list.
     """
     pairs = []
-    for pair in itertools.product(listofelements, repeat=2):
+    for pair in itertools.product(lst, repeat=2):
         pairs.append(pair)
-    pairs = [list(x) for x in pairs]
+    pairs = [ list(x) for x in pairs ]
     return pairs
+
+def clustering(lst):
+    clustered = [list(g) for k, g in itertools.groupby(sorted(lst), lambda x: x.split('-')[0])]
+    return clustered
