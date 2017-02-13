@@ -58,7 +58,8 @@ def clustering(lst):
 
 def find_minimum(lst):
     """
-    Find minimum value inside a list.
+    Find minimum value inside a list and its index.
     """
-    minimum = lst.index(min(lst))
-    return minimum
+    minimum = min(lst)
+    index = lst.index(minimum)
+    return index, minimum

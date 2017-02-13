@@ -62,7 +62,7 @@ with open('output.txt', 'w') as outputf, open('mintrain.txt', 'w') as min_traini
             outputf.flush()
             l2_min.append(l2metric)
         minimum = find_minimum(l2_min)
-        min_training.write(c[minimum] + '\n')
+        min_training.write(c[minimum[0]] + ', ' + repr(minimum[1]) + '\n')
         min_training.flush()
         """
         This is for testing purposes
