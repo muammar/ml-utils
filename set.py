@@ -48,5 +48,17 @@ def get_pairs(lst):
     return pairs
 
 def clustering(lst):
+    """
+    This method takes a list, then it sorts it and return a new list with
+    clustered strings.
+    See: http://stackoverflow.com/questions/42184215/clustering-strings-of-a-list-and-return-a-list-of-lists
+    """
     clustered = [list(g) for k, g in itertools.groupby(sorted(lst), lambda x: x.split('-')[0])]
     return clustered
+
+def find_minimum(lst):
+    """
+    Find minimum value inside a list.
+    """
+    minimum = lst.index(min(lst))
+    return minimum
