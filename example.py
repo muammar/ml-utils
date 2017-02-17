@@ -10,8 +10,8 @@ import os
 """
 Setting paths to trainings, and predictions done with Amp.
 """
-p_training = '/mnt/rdata/data/melkhati/calculations/symmetry_functions/physisorption/corrected/cu221/01_original/train_getpot_g4_cos_NN_2HL/'
-p_predictions = '/mnt/rdata/data/melkhati/calculations/symmetry_functions/physisorption/corrected/cu221/01_original/predict/2HL/'
+p_training = '/mnt/rdata/data/melkhati/calculations/symmetry_functions/physisorption/corrected/cu221/01_original/train_getpot_g4_cos_NN_1HL/'
+p_predictions = '/mnt/rdata/data/melkhati/calculations/symmetry_functions/physisorption/corrected/cu221/01_original/predict/1HL/'
 fref = '/mnt/rdata/data/melkhati/calculations/symmetry_functions/physisorption/corrected/cu221/01_original/get_potential/potential_energy.dat'
 
 trained = trained_calculations(p_training)

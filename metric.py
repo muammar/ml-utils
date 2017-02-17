@@ -36,6 +36,20 @@ def l2(fref, fprediction):
         exit()
     return l2
 
+def rmse(fref, fprediction):
+    refdata = [ line.rstrip('\n').replace(' ',', ').split(', ') for line in open(fref) ]
+    predata = [ line.rstrip('\n').replace(' ',', ').split(', ') for line in open(fprediction) ]
+
+    if len(refdata) == len(predata):
+        diff = 0.
+        for i, _ in enumerate(refdata):
+            diff += (abs(float(refdata[i][1]) - float(predata[i][1])))**2
+
+        rmse = math.sqrt(diff/len(refdata))
+    else:
+        print('The two curves should have the same number of points')
+        exit()
+    return rmse
 
 if __name__ == "__main__":
 
