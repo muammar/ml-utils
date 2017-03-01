@@ -4,14 +4,14 @@
 from set import (trained_calculations, listing_calculations,
         common_calculations, get_pairs, compare_strings, clustering,
         find_minimum)
-from metric import l2
+from metric import l2, rmse
 import os
 
 """
 Setting paths to trainings, and predictions done with Amp.
 """
-p_training = '/mnt/rdata/data/melkhati/calculations/symmetry_functions/physisorption/corrected/cu221/01_original/train_getpot_g4_cos_NN_1HL/'
-p_predictions = '/mnt/rdata/data/melkhati/calculations/symmetry_functions/physisorption/corrected/cu221/01_original/predict/1HL/'
+p_training = '/mnt/rdata/data/melkhati/calculations/symmetry_functions/physisorption/corrected/cu221/01_original/train_getpot_g5_cos_NN_1HL'
+p_predictions = '/mnt/rdata/data/melkhati/calculations/symmetry_functions/physisorption/corrected/cu221/01_original/predict/1HLg5/'
 fref = '/mnt/rdata/data/melkhati/calculations/symmetry_functions/physisorption/corrected/cu221/01_original/get_potential/potential_energy.dat'
 
 trained = trained_calculations(p_training)
@@ -55,7 +55,7 @@ with open('output.txt', 'w') as outputf, open('mintrain.txt', 'w') as min_traini
                 os.system(call_ase)
 
             f = 'File: ' + _ + '\n'
-            l2metric = l2(fref, _+'.data')
+            l2metric = rmse(fref, _+'.data')
             outputf.write(f)
             outputf.write(call_ase+'\n')
             outputf.write('L2 = ' + repr(l2metric) + '\n' + '\n' )
