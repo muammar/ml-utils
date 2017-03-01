@@ -56,7 +56,6 @@ if args.directory == None:
     args.directory = '.'
 
 listing = glob.glob(args.directory+'/*.txt')
-print(listing)
 
 if args.get.lower() == 'forces':
     if args.metric.lower() == 'maxresid':
@@ -79,9 +78,8 @@ for element in listing:
 
     for index, line in enumerate(f):
         if '..optimization successful' in line:
-            print(type(f[index - 1]))
             x = map(str, f[index - 1].split())
-            add = [element, x[arrindex]]
+            add = [element, float(x[arrindex])]
             metrics.append(add)
             tofind.append(add[1])
             opening.close()
@@ -89,7 +87,6 @@ minimum = min(tofind)
 maximum = max(tofind)
 
 for _ in metrics:
-    print(_)
     if minimum in _:
         print('Minimum error')
         print(_)
@@ -100,4 +97,3 @@ for _ in metrics:
         print('Maximum error')
         print(_)
         break
-
