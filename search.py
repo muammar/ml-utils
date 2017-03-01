@@ -22,7 +22,7 @@ type=str,
 default=None,
 help=
 '''
-Metric to be grepped.
+Metric to be searched inside Amp output files.
 '''
 )
 
@@ -35,8 +35,8 @@ help=
 Get the metric for the quantity that you want:
 
 Example:
-    python grep.py --get forces --metric MaxResid
-    python grep.py --get energy --metric rmse
+    python search.py --get forces --metric MaxResid
+    python search.py --get energy --metric rmse
 '''
 )
 
