@@ -120,7 +120,7 @@ class accelerate_neb(object):
             self.training_set = self.initial_set
             print('Iteration %s' % self.iteration)
             print('NEB images to slice %s' % nreadimg)
-            print('Lenght of training set is %s.' % len(self.training_set))
+            print('Length of training set is %s.' % len(self.training_set))
             label = str(self.iteration)
             amp_calc = self.amp_calc
             amp_calc.set_label(label)
@@ -147,7 +147,7 @@ class accelerate_neb(object):
                     print('adding %s' % s)
                     self.training_set.append(_)
                 print('Iteration %s' % self.iteration)
-                print('Lenght of training set is %s.' % len(self.training_set))
+                print('Length of training set is now %s.' % len(self.training_set))
             elif self.iteration == self.maxiter:
                 break
             else:
