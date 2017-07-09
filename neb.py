@@ -25,10 +25,17 @@ class accelerate_neb(object):
         Path to the initial image.
     final : str
         Path to the final image.
+    maxiter : int
+        Number of maximum neb calls to find defined tolerance.
+    tolerance : float
+        Set the maximum error you expect from the model. The lower the more
+        exact.
     """
-    def __init__(self, initial=None, final=None):
+    def __init__(self, initial=None, final=None, tolerance=0.01, maxiter=20):
         self.initialized = False
         self.trained = False
+        self.maxiter = maxiter
+        self.tolerance = tolerance
 
         if initial != None and final != None:
             self.initial = read(initial)
@@ -36,7 +43,7 @@ class accelerate_neb(object):
         else:
             print('You need to specify things')
 
-    def initialize(self, calc=None, amp_calc=None, climb=False, intermediates=None, fmax=0.05, tolerance=0.01):
+    def initialize(self, calc=None, amp_calc=None, climb=False, intermediates=None, fmax=0.05):
         """Method to initialize the acceleration of NEB
 
         Parameters
@@ -51,16 +58,12 @@ class accelerate_neb(object):
             Whether or not NEB will be run using climbing image mode.
         fmax : float
             The maximum force allowed by the optimizer.
-        tolerance : float
-            What is the maximum error you expect from the model. The lower the more
-            exact.
         """
 
         self.calc = calc
         self.amp_calc = amp_calc
         self.intermediates = intermediates
         self.fmax = fmax
-        self.tolerance = tolerance
 
         images = [ self.initial ]
 
@@ -145,7 +148,7 @@ class accelerate_neb(object):
                     self.training_set.append(_)
                 print('Iteration %s' % self.iteration)
                 print('Lenght of training set is %s.' % len(self.training_set))
-            elif self.iteration == 2:
+            elif self.iteration == self.maxiter:
                 break
             else:
                 print('ITER > 1')
@@ -171,7 +174,7 @@ class accelerate_neb(object):
             del newcalc
             new_neb_images = read(self.traj, index=slice(nreadimg, None))
             newcalc = Amp.load('%s.amp' % label)
-            achieved = self.cross_validate(new_neb_images, calc=self.calc, amp_calc=newcacl)
+            achieved = self.cross_validate(new_neb_images, calc=self.calc, amp_calc=newcalc)
             del newcalc
 
     def train(self, trainingset, amp_calc, label=None):
