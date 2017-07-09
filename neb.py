@@ -58,7 +58,7 @@ class accelerate_neb(object):
 
         self.calc = calc
         self.amp_calc = amp_calc
-        self.intermediates =  intermediates
+        self.intermediates = intermediates
         self.fmax = fmax
         self.tolerance = tolerance
 
@@ -120,6 +120,7 @@ class accelerate_neb(object):
             print('Lenght of training set is %s.' % len(self.training_set))
             label = str(self.iteration)
             amp_calc = self.amp_calc
+            amp_calc.set_label(label)
             self.train(self.training_set, amp_calc, label=label)
             del amp_calc
             newcalc = Amp.load('%s.amp' % label)
@@ -161,6 +162,7 @@ class accelerate_neb(object):
                 print('Length of training set is %s.' % len(self.training_set))
             label = str(self.iteration)
             amp_calc = self.amp_calc
+            amp_calc.set_label(label)
             self.train(self.training_set, amp_calc, label=label)
             del amp_calc
             newcalc = Amp.load('%s.amp' % label)
@@ -190,7 +192,8 @@ class accelerate_neb(object):
             amp_calc.dblabel = label
             amp_calc.label = label
             amp_calc.train(trainingset)
-            subprocess.call(['mv', 'amp-log.txt', label + '-train.log'])
+            #subprocess.call(['mv', 'amp-log.txt', label + '-train.log'])
+            del amp_calc
         except:
             raise
 
