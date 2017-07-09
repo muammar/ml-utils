@@ -31,7 +31,7 @@ class accelerate_neb(object):
         Set the maximum error you expect from the model. The lower the more
         exact.
     """
-    def __init__(self, initial=None, final=None, tolerance=0.01, maxiter=20):
+    def __init__(self, initial=None, final=None, tolerance=0.01, maxiter=200):
         self.initialized = False
         self.trained = False
         self.maxiter = maxiter
