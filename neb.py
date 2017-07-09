@@ -75,7 +75,7 @@ class accelerate_neb(object):
 
             images.append(self.final)
 
-            self.training_set = self.run_neb(images, interpolate=True)
+            self.initial_set = self.run_neb(images, interpolate=True)
             self.initialized = True
 
         print('NON INTERPOLATED')
@@ -83,7 +83,7 @@ class accelerate_neb(object):
             print(image.get_potential_energy())
 
         print('INTERPOLATION')
-        for image in self.training_set:
+        for image in self.initial_set:
             print(image.get_potential_energy())
 
     def run_neb(self, images, interpolate=False):
@@ -103,8 +103,10 @@ class accelerate_neb(object):
             return neb.images
         else:
             self.traj = 'neb_%s.traj' % self.iteration
-            qn = BFGS(neb, trajectory=self.traj)
+            logfile = 'neb_%s.log' % self.iteration
+            qn = BFGS(neb, trajectory=self.traj, logfile=logfile)
             qn.run(fmax=self.fmax)
+        clean_dir()
 
     def accelerate(self):
         """This method performs all the acceleration algorithm"""
@@ -112,16 +114,23 @@ class accelerate_neb(object):
         nreadimg = -(self.intermediates + 2)
         if self.initialized is True and self.trained is False:
             self.iteration = 0
+            self.training_set = self.initial_set
+            print('Iteration %s' % self.iteration)
             print('NEB images to slice %s' % nreadimg)
             print('Lenght of training set is %s.' % len(self.training_set))
-            print('Iteration %s' % self.iteration)
-            self.train(self.training_set, self.amp_calc, iteration=str(self.iteration))
-            calc = Amp.load(str(self.iteration) + '.amp')
-            images = set_calculators(self.training_set, calc)
+            label = str(self.iteration)
+            amp_calc = self.amp_calc
+            self.train(self.training_set, amp_calc, label=label)
+            del amp_calc
+            newcalc = Amp.load('%s.amp' % label)
+            images = set_calculators(self.initial_set, newcalc)
             self.run_neb(images)
             print(self.traj)
             ini_neb_images = read(self.traj, index=slice(nreadimg, None))
-            achieved = self.cross_validate(ini_neb_images, calc=self.calc, amp_calc=self.amp_calc)
+            del newcalc
+            newcalc = Amp.load('%s.amp' % label)
+            achieved = self.cross_validate(ini_neb_images, calc=self.calc, amp_calc=newcalc)
+            del newcalc
 
         while achieved > self.tolerance:
             self.iteration += 1
@@ -135,6 +144,8 @@ class accelerate_neb(object):
                     self.training_set.append(_)
                 print('Iteration %s' % self.iteration)
                 print('Lenght of training set is %s.' % len(self.training_set))
+            elif self.iteration == 2:
+                break
             else:
                 print('ITER > 1')
                 self.traj_to_add = 'neb_%s.traj' % (self.iteration - 1)
@@ -147,21 +158,39 @@ class accelerate_neb(object):
                     print('adding %s' % s)
                     self.training_set.append(_)
                 print('Iteration %s' % self.iteration)
-                print('Lenght of training set is %s.' % len(self.training_set))
-            self.train(self.training_set, self.amp_calc, iteration=str(self.iteration))
-            calc = Amp.load(str(self.iteration) + '.amp')
-            images = set_calculators(self.training_set, calc)
+                print('Length of training set is %s.' % len(self.training_set))
+            label = str(self.iteration)
+            amp_calc = self.amp_calc
+            self.train(self.training_set, amp_calc, label=label)
+            del amp_calc
+            newcalc = Amp.load('%s.amp' % label)
+            images = set_calculators(self.initial_set, newcalc)
             self.run_neb(images)
-            ini_neb_images = read(self.traj, index=slice(nreadimg, None))
-            achieved = self.cross_validate(ini_neb_images, calc=self.calc, amp_calc=self.amp_calc)
+            del newcalc
+            new_neb_images = read(self.traj, index=slice(nreadimg, None))
+            newcalc = Amp.load('%s.amp' % label)
+            achieved = self.cross_validate(new_neb_images, calc=self.calc, amp_calc=newcacl)
+            del newcalc
 
-    def train(self, trainingset, amp_calc, iteration=None):
-        """This method takes care of training """
+    def train(self, trainingset, amp_calc, label=None):
+        """This method takes care of training
+
+        Parameters
+        ----------
+        trainingset : object
+            List of images to be trained.
+        amp_calc : object
+            The Amp instance to do the training of the model.
+        label : str
+            An integer converted to string.
+        """
+        if label == None:
+            label = str(self.iteration)
         try:
-            amp_calc.dblabel = iteration
-            amp_calc.label = iteration
+            amp_calc.dblabel = label
+            amp_calc.label = label
             amp_calc.train(trainingset)
-            subprocess.call(['mv', 'amp-log.txt', iteration + '-log.txt'])
+            subprocess.call(['mv', 'amp-log.txt', label + '-train.log'])
         except:
             raise
 
@@ -200,12 +229,29 @@ class accelerate_neb(object):
         print(metric)
         return metric
 
-def set_calculators(images, calc):
+def set_calculators(images, calc, label=None):
     """docstring for set_calculators"""
-    newimages = []
 
+    if label != None:
+        print('Label was set to %s' % label)
+        calc.label = label
+    newimages = []
     for image in images:
         image.set_calculator(calc)
         newimages.append(image)
 
     return newimages
+
+def clean_dir():
+    """Cleaning some directories"""
+    print('Cleaning up...')
+    remove = [
+            'rm',
+            '-rf',
+            'amp-fingerprint-primes.ampdb',
+            'amp-fingerprints.ampdb',
+            'amp-log.txt',
+            'amp-neighborlists.ampdb'
+            ]
+    subprocess.call(remove)
+    print('Done')
