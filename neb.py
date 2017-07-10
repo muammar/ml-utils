@@ -33,7 +33,12 @@ class accelerate_neb(object):
     fmax : float
         The maximum force allowed by the optimizer.
     """
-    def __init__(self, initial=None, final=None, tolerance=0.01, maxiter=200, fmax=0.05, ifmax=0.1):
+    def __init__(self, initial=None, final=None, tolerance=0.01, maxiter=200,
+            fmax=0.05, ifmax=0.1, logfile=None):
+
+        if logfile is None:
+            logfile = 'acceleration.log'
+
         self.initialized = False
         self.trained = False
         self.maxiter = maxiter
@@ -41,11 +46,13 @@ class accelerate_neb(object):
         self.fmax = fmax
         self.ifmax = ifmax
 
+        self.logfile = open(logfile, 'w')
+
         if initial != None and final != None:
             self.initial = read(initial)
             self.final = read(final)
         else:
-            print('You need to specify things')
+            self.logfile.write('You need to specify things')
 
     def initialize(self, calc=None, amp_calc=None, climb=False, intermediates=None):
         """Method to initialize the acceleration of NEB
@@ -82,13 +89,13 @@ class accelerate_neb(object):
             self.initial_set = self.run_neb(images, interpolate=True)
             self.initialized = True
 
-        print('NON INTERPOLATED')
-        for image in images:
-            print(image.get_potential_energy())
+        #print('NON INTERPOLATED')
+        #for image in images:
+        #    print(image.get_potential_energy())
 
-        print('INTERPOLATION')
-        for image in self.initial_set:
-            print(image.get_potential_energy())
+        #print('INTERPOLATION')
+        #for image in self.initial_set:
+        #    print(image.get_potential_energy())
 
     def run_neb(self, images, interpolate=False, fmax=None):
         """This method runs NEB calculation
@@ -103,7 +110,8 @@ class accelerate_neb(object):
         if fmax == None:
             fmax = self.ifmax
 
-        print('fmax is %s' % fmax)
+        self.logfile.write('Fmax is %s \n' % fmax)
+        self.logfile.flush()
 
         neb = NEB(images)
 
@@ -115,7 +123,7 @@ class accelerate_neb(object):
             logfile = 'neb_%s.log' % self.iteration
             qn = BFGS(neb, trajectory=self.traj, logfile=logfile)
             qn.run(fmax=fmax)
-        clean_dir()
+        clean_dir(logfile=self.logfile)
 
     def accelerate(self):
         """This method performs all the acceleration algorithm"""
@@ -124,67 +132,74 @@ class accelerate_neb(object):
         if self.initialized is True and self.trained is False:
             self.iteration = 0
             self.training_set = self.initial_set
-            print('Iteration %s' % self.iteration)
-            print('NEB images to slice %s' % nreadimg)
-            print('Length of training set is %s.' % len(self.training_set))
+            self.logfile.write('Iteration %s \n' % self.iteration)
+            self.logfile.write('NEB images to slice %s \n' % nreadimg)
+            self.logfile.write('Length of training set is %s. \n' % len(self.training_set))
+            self.logfile.flush()
             label = str(self.iteration)
             amp_calc = self.amp_calc
             amp_calc.set_label(label)
             self.train(self.training_set, amp_calc, label=label)
             del amp_calc
             newcalc = Amp.load('%s.amp' % label)
-            images = set_calculators(self.initial_set, newcalc)
+            images = set_calculators(self.initial_set, newcalc, logfile=self.logfile)
             self.run_neb(images)
-            clean_dir()
-            print(self.traj)
+            clean_dir(logfile=self.logfile)
+            self.logfile.write('Trajectory file used is %s \n' % self.traj)
+            self.logfile.flush()
             ini_neb_images = read(self.traj, index=slice(nreadimg, None))
             del newcalc
             newcalc = Amp.load('%s.amp' % label)
             achieved = self.cross_validate(ini_neb_images, calc=self.calc, amp_calc=newcalc)
             del newcalc
+            self.logfile.flush()
 
         while achieved > self.tolerance:
             self.iteration += 1
             if (self.iteration - 1)  == 0:
-                print('INITIAL')
+                self.logfile.write('INITIAL\n')
+                self.logfile.flush()
                 ini_neb_images = ini_neb_images[1:-1]
                 s = 0
                 for _ in ini_neb_images:
                     s += 1
-                    print('adding %s' % s)
+                    self.logfile.write('Adding %s \n' % s)
                     self.training_set.append(_)
-                print('Iteration %s' % self.iteration)
-                print('Length of training set is now %s.' % len(self.training_set))
+                self.logfile.write('Iteration %s \n' % self.iteration)
+                self.logfile.write('Length of training set is now %s.\n' % len(self.training_set))
+                self.logfile.flush()
             elif self.iteration == self.maxiter:
                 break
             else:
-                print('ITER > 1')
                 self.traj_to_add = 'neb_%s.traj' % (self.iteration - 1)
-                print(self.traj_to_add)
+                self.logfile.write('Trajectory to be added %s \n' % self.traj_to_add)
+                self.logfile.flush()
                 images_from_prev_neb = read(self.traj_to_add, index=slice(nreadimg, None))
                 images_to_add = images_from_prev_neb[1:-1]
                 s = 0
                 for _ in images_to_add:
                     s += 1
-                    print('adding %s' % s)
+                    self.logfile.write('Adding %s \n' % s)
                     self.training_set.append(_)
-                print('Iteration %s' % self.iteration)
-                print('Length of training set is %s.' % len(self.training_set))
-            self.training_set = set_calculators(self.training_set, self.calc)
+                self.logfile.write('Iteration %s \n' % self.iteration)
+                self.logfile.write('Length of training set is %s.\n' % len(self.training_set))
+                self.logfile.flush()
+            self.training_set = set_calculators(self.training_set, self.calc, logfile=self.logfile)
             label = str(self.iteration)
             amp_calc = self.amp_calc
             amp_calc.set_label(label)
             self.train(self.training_set, amp_calc, label=label)
             del amp_calc
             newcalc = Amp.load('%s.amp' % label)
-            images = set_calculators(self.initial_set, newcalc)
+            images = set_calculators(self.initial_set, newcalc, logfile=self.logfile)
             self.run_neb(images, fmax=self.fmax)
-            clean_dir()
+            clean_dir(logfile=self.logfile)
             del newcalc
             new_neb_images = read(self.traj, index=slice(nreadimg, None))
             newcalc = Amp.load('%s.amp' % label)
             achieved = self.cross_validate(new_neb_images, calc=self.calc, amp_calc=newcalc)
             del newcalc
+            self.logfile.flush()
 
     def train(self, trainingset, amp_calc, label=None):
         """This method takes care of training
@@ -225,7 +240,7 @@ class accelerate_neb(object):
         amp_calc : object
             This is the machine learning model used to perform predictions.
         """
-        print(len(neb_images))
+        self.logfile.write('Length of NEB images %s \n' % len(neb_images))
 
         amp_energies = []
         amp_images = set_calculators(neb_images, amp_calc)
@@ -241,26 +256,28 @@ class accelerate_neb(object):
             dft_energies.append(energy)
 
         metric = mean_absolute_error(dft_energies, amp_energies)
-        print(metric)
+        self.logfile('The metric is %s and tolerance is %s \n '% (metric, self.tolerance))
+        self.logfile.flush()
         return metric
 
-def set_calculators(images, calc, label=None):
+def set_calculators(images, calc, label=None, logfile=None):
     """docstring for set_calculators"""
 
     if label != None:
-        print('Label was set to %s' % label)
+        self.logfile.write('Label was set to %s\n' % label)
         calc.label = label
     for image in images:
         image.set_calculator(calc)
         image.get_potential_energy(apply_constraint=False)
         image.get_forces(apply_constraint=False)
 
-    print('Calculator set for %s images' % len(images))
+    if logfile is not None:
+        logfile.write('Calculator set for %s images\n' % len(images))
+        logfile.flush()
     return images
 
-def clean_dir():
+def clean_dir(logfile=None):
     """Cleaning some directories"""
-    print('Cleaning up...')
     remove = [
             'rm',
             '-rf',
@@ -270,4 +287,8 @@ def clean_dir():
             'amp-neighborlists.ampdb'
             ]
     subprocess.call(remove)
-    print('Done')
+    if logfile is not None:
+        logfile.write('Calculator set for %s images\n' % len(images))
+        logfile.flush()
+        logfile.write('Cleaning up...\n')
+        logfile.flush()
