@@ -30,12 +30,16 @@ class accelerate_neb(object):
     tolerance : float
         Set the maximum error you expect from the model. The lower the more
         exact.
+    fmax : float
+        The maximum force allowed by the optimizer.
     """
-    def __init__(self, initial=None, final=None, tolerance=0.01, maxiter=200):
+    def __init__(self, initial=None, final=None, tolerance=0.01, maxiter=200, fmax=0.05, ifmax=0.1):
         self.initialized = False
         self.trained = False
         self.maxiter = maxiter
         self.tolerance = tolerance
+        self.fmax = fmax
+        self.ifmax = ifmax
 
         if initial != None and final != None:
             self.initial = read(initial)
@@ -43,7 +47,7 @@ class accelerate_neb(object):
         else:
             print('You need to specify things')
 
-    def initialize(self, calc=None, amp_calc=None, climb=False, intermediates=None, fmax=0.05):
+    def initialize(self, calc=None, amp_calc=None, climb=False, intermediates=None):
         """Method to initialize the acceleration of NEB
 
         Parameters
@@ -56,14 +60,11 @@ class accelerate_neb(object):
             Number of intermediate images for the NEB calculation.
         climb : bool
             Whether or not NEB will be run using climbing image mode.
-        fmax : float
-            The maximum force allowed by the optimizer.
         """
 
         self.calc = calc
         self.amp_calc = amp_calc
         self.intermediates = intermediates
-        self.fmax = fmax
 
         images = [ self.initial ]
 
@@ -89,7 +90,7 @@ class accelerate_neb(object):
         for image in self.initial_set:
             print(image.get_potential_energy())
 
-    def run_neb(self, images, interpolate=False):
+    def run_neb(self, images, interpolate=False, fmax=None):
         """This method runs NEB calculation
 
         Parameters
@@ -99,6 +100,11 @@ class accelerate_neb(object):
         interpolate : bool
             Interpolate images. Needed when initializing this module.
         """
+        if fmax == None:
+            fmax = self.ifmax
+
+        print('fmax is %s' % fmax)
+
         neb = NEB(images)
 
         if interpolate is True:
@@ -108,7 +114,7 @@ class accelerate_neb(object):
             self.traj = 'neb_%s.traj' % self.iteration
             logfile = 'neb_%s.log' % self.iteration
             qn = BFGS(neb, trajectory=self.traj, logfile=logfile)
-            qn.run(fmax=self.fmax)
+            qn.run(fmax=fmax)
         clean_dir()
 
     def accelerate(self):
@@ -129,6 +135,7 @@ class accelerate_neb(object):
             newcalc = Amp.load('%s.amp' % label)
             images = set_calculators(self.initial_set, newcalc)
             self.run_neb(images)
+            clean_dir()
             print(self.traj)
             ini_neb_images = read(self.traj, index=slice(nreadimg, None))
             del newcalc
@@ -154,8 +161,8 @@ class accelerate_neb(object):
                 print('ITER > 1')
                 self.traj_to_add = 'neb_%s.traj' % (self.iteration - 1)
                 print(self.traj_to_add)
-                images_to_add = read(self.traj_to_add, index=slice(nreadimg, None))
-                images_to_add = images_to_add[1:-1]
+                images_from_prev_neb = read(self.traj_to_add, index=slice(nreadimg, None))
+                images_to_add = images_from_prev_neb[1:-1]
                 s = 0
                 for _ in images_to_add:
                     s += 1
@@ -163,6 +170,7 @@ class accelerate_neb(object):
                     self.training_set.append(_)
                 print('Iteration %s' % self.iteration)
                 print('Length of training set is %s.' % len(self.training_set))
+            self.training_set = set_calculators(self.training_set, self.calc)
             label = str(self.iteration)
             amp_calc = self.amp_calc
             amp_calc.set_label(label)
@@ -170,7 +178,8 @@ class accelerate_neb(object):
             del amp_calc
             newcalc = Amp.load('%s.amp' % label)
             images = set_calculators(self.initial_set, newcalc)
-            self.run_neb(images)
+            self.run_neb(images, fmax=self.fmax)
+            clean_dir()
             del newcalc
             new_neb_images = read(self.traj, index=slice(nreadimg, None))
             newcalc = Amp.load('%s.amp' % label)
@@ -241,12 +250,13 @@ def set_calculators(images, calc, label=None):
     if label != None:
         print('Label was set to %s' % label)
         calc.label = label
-    newimages = []
     for image in images:
         image.set_calculator(calc)
-        newimages.append(image)
+        image.get_potential_energy(apply_constraint=False)
+        image.get_forces(apply_constraint=False)
 
-    return newimages
+    print('Calculator set for %s images' % len(images))
+    return images
 
 def clean_dir():
     """Cleaning some directories"""
