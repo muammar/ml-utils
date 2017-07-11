@@ -1,15 +1,18 @@
 # This module was written by Muammar El Khatib <muammar@brown.edu>
 
 # ASE imports
-from ase.io import read
+from ase.io import read, Trajectory, write
 from ase.neb import NEB
 from ase.optimize import BFGS
+
 
 # Amp imports
 from amp import Amp
 
 from sklearn.metrics import mean_absolute_error
 import subprocess
+import os.path
+
 
 class accelerate_neb(object):
     """Accelerating NEB calculations using Machine Learning
@@ -85,8 +88,8 @@ class accelerate_neb(object):
                 images.append(image)
 
             images.append(self.final)
+            self.neb_images = self.run_neb(images, interpolate=True)
 
-            self.initial_set = self.run_neb(images, interpolate=True)
             self.initialized = True
 
         #print('NON INTERPOLATED')
@@ -117,7 +120,9 @@ class accelerate_neb(object):
 
         if interpolate is True:
             neb.interpolate()
+            set_calculators(neb.images, self.calc, write_training_set=True)
             return neb.images
+
         else:
             self.traj = 'neb_%s.traj' % self.iteration
             logfile = 'neb_%s.log' % self.iteration
@@ -131,7 +136,7 @@ class accelerate_neb(object):
         nreadimg = -(self.intermediates + 2)
         if self.initialized is True and self.trained is False:
             self.iteration = 0
-            self.training_set = self.initial_set
+            self.training_set = Trajectory('training.traj')
             self.logfile.write('Iteration %s \n' % self.iteration)
             self.logfile.write('NEB images to slice %s \n' % nreadimg)
             self.logfile.write('Length of training set is %s. \n' % len(self.training_set))
@@ -141,9 +146,9 @@ class accelerate_neb(object):
             amp_calc.set_label(label)
             self.train(self.training_set, amp_calc, label=label)
             del amp_calc
+            clean_train_data()
             newcalc = Amp.load('%s.amp' % label)
-            images = set_calculators(self.initial_set, newcalc, logfile=self.logfile)
-            self.run_neb(images)
+            self.run_neb(self.neb_images, fmax=self.ifmax)
             clean_dir(logfile=self.logfile)
             self.logfile.write('Trajectory file used is %s \n' % self.traj)
             self.logfile.flush()
@@ -151,9 +156,13 @@ class accelerate_neb(object):
             del newcalc
             newcalc = Amp.load('%s.amp' % label)
             achieved = self.cross_validate(ini_neb_images, calc=self.calc, amp_calc=newcalc)
+            clean_dir(logfile=self.logfile)
             del newcalc
             self.logfile.flush()
+            self.training_set.close()
 
+        denominator = 2
+        fmax = self.ifmax
         while achieved > self.tolerance:
             self.iteration += 1
             if (self.iteration - 1)  == 0:
@@ -161,43 +170,66 @@ class accelerate_neb(object):
                 self.logfile.flush()
                 ini_neb_images = ini_neb_images[1:-1]
                 s = 0
+                #self.training_set = Trajectory('training.traj', 'a')
+                adding = []
                 for _ in ini_neb_images:
                     s += 1
                     self.logfile.write('Adding %s \n' % s)
-                    self.training_set.append(_)
+                    #_.set_calculator(self.calc)
+                    #_.get_potential_energy()
+                    #_.get_forces()
+                    #self.training_set.write(_)
+                    adding.append(_)
+                set_calculators(adding, self.calc, write_training_set=True)
                 self.logfile.write('Iteration %s \n' % self.iteration)
                 self.logfile.write('Length of training set is now %s.\n' % len(self.training_set))
                 self.logfile.flush()
+                #self.training_set.close()
             elif self.iteration == self.maxiter:
                 break
             else:
+                print('Aqui')
                 self.traj_to_add = 'neb_%s.traj' % (self.iteration - 1)
                 self.logfile.write('Trajectory to be added %s \n' % self.traj_to_add)
                 self.logfile.flush()
                 images_from_prev_neb = read(self.traj_to_add, index=slice(nreadimg, None))
                 images_to_add = images_from_prev_neb[1:-1]
                 s = 0
+
+                adding = []
                 for _ in images_to_add:
                     s += 1
                     self.logfile.write('Adding %s \n' % s)
-                    self.training_set.append(_)
+                    adding.append(_)
+
+                set_calculators(adding, self.calc, write_training_set=True)
                 self.logfile.write('Iteration %s \n' % self.iteration)
                 self.logfile.write('Length of training set is %s.\n' % len(self.training_set))
                 self.logfile.flush()
-            self.training_set = set_calculators(self.training_set, self.calc, logfile=self.logfile)
+            self.training_set = Trajectory('training.traj')
             label = str(self.iteration)
             amp_calc = self.amp_calc
             amp_calc.set_label(label)
             self.train(self.training_set, amp_calc, label=label)
             del amp_calc
+            clean_train_data()
             newcalc = Amp.load('%s.amp' % label)
-            images = set_calculators(self.initial_set, newcalc, logfile=self.logfile)
-            self.run_neb(images, fmax=self.fmax)
+            images = set_calculators(self.neb_images, newcalc, logfile=self.logfile)
+
+            print(fmax)
+
+            if fmax < self.fmax:
+                fmax = self.fmax
+            else:
+                fmax = fmax / denominator
+            print('The set fmax is %s' % fmax)
+            self.run_neb(images, fmax=fmax)
             clean_dir(logfile=self.logfile)
             del newcalc
             new_neb_images = read(self.traj, index=slice(nreadimg, None))
             newcalc = Amp.load('%s.amp' % label)
             achieved = self.cross_validate(new_neb_images, calc=self.calc, amp_calc=newcalc)
+            clean_dir(logfile=self.logfile)
             del newcalc
             self.logfile.flush()
 
@@ -256,24 +288,47 @@ class accelerate_neb(object):
             dft_energies.append(energy)
 
         metric = mean_absolute_error(dft_energies, amp_energies)
-        self.logfile('The metric is %s and tolerance is %s \n '% (metric, self.tolerance))
-        self.logfile.flush()
+        print(metric)
+        #self.logfile('The metric is %s. \n ' % metric)
+        #self.logfile.flush()
         return metric
 
-def set_calculators(images, calc, label=None, logfile=None):
+def set_calculators(images, calc, label=None, logfile=None,
+        write_training_set=False, write_neb=False):
     """docstring for set_calculators"""
 
     if label != None:
         self.logfile.write('Label was set to %s\n' % label)
         calc.label = label
-    for image in images:
-        image.set_calculator(calc)
-        image.get_potential_energy(apply_constraint=False)
-        image.get_forces(apply_constraint=False)
+
+    if write_training_set is True:
+       if os.path.isfile('training.traj'):
+           print(len(images))
+           training_file = Trajectory('training.traj', mode='a')
+       else:
+           training_file = Trajectory('training.traj', mode='w')
+
+    if write_neb is True:
+        neb_file = Trajectory('neb_images.traj', mode='w')
+
+    for index in range(len(images)):
+        images[index].set_calculator(calc)
+        images[index].get_potential_energy(apply_constraint=False)
+        images[index].get_forces(apply_constraint=False)
+
+        if write_training_set is True:
+            training_file.write(images[index])
+        elif write_neb is True:
+            neb_file.write(images[index])
 
     if logfile is not None:
         logfile.write('Calculator set for %s images\n' % len(images))
         logfile.flush()
+
+    if write_training_set is True:
+        training_file.close()
+    elif write_neb is True:
+        neb_file.close()
     return images
 
 def clean_dir(logfile=None):
@@ -287,8 +342,10 @@ def clean_dir(logfile=None):
             'amp-neighborlists.ampdb'
             ]
     subprocess.call(remove)
+
     if logfile is not None:
-        logfile.write('Calculator set for %s images\n' % len(images))
-        logfile.flush()
         logfile.write('Cleaning up...\n')
         logfile.flush()
+
+def clean_train_data():
+    subprocess.call('rm -r *.ampdb *checkpoints*', shell=True)
