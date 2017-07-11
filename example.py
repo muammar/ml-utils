@@ -32,7 +32,7 @@ neb = accelerate_neb(
         tolerance=0.00019,
         maxiter=200,
         fmax=0.05,
-        ifmax=1.0)
+        ifmax=None)
 
 neb.initialize(
         calc=dft_calc,
