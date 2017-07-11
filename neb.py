@@ -118,7 +118,7 @@ class accelerate_neb(object):
             Interpolate images. Needed when initializing this module.
         """
         if fmax == None:
-            fmax = self.ifmax
+            fmax = self.fmax
 
         self.logfile.write('Fmax is %s \n' % fmax)
         self.logfile.flush()
@@ -176,30 +176,76 @@ class accelerate_neb(object):
         fmax = self.ifmax
         self.logfile.write('Step = %s, ifmax = %s, fmax = %s \n' % (step, fmax, self.fmax))
 
-        while achieved > self.tolerance:
+        while True:
             self.iteration += 1
-            if (self.iteration - 1)  == 0:
-                self.logfile.write('INITIAL\n')
+            if achieved > self.tolerance:
+                print('Line 182', fmax)
+                if (self.iteration - 1)  == 0:
+                    self.logfile.write('INITIAL\n')
+                    self.logfile.flush()
+                    ini_neb_images = ini_neb_images[1:-1]
+                    s = 0
+                    #self.training_set = Trajectory('training.traj', 'a')
+                    adding = []
+                    for _ in ini_neb_images:
+                        s += 1
+                        self.logfile.write('Adding %s \n' % s)
+                        #_.set_calculator(self.calc)
+                        #_.get_potential_energy()
+                        #_.get_forces()
+                        #self.training_set.write(_)
+                        adding.append(_)
+                    set_calculators(adding, self.calc, write_training_set=True)
+                    self.logfile.write('Iteration %s \n' % self.iteration)
+                    self.logfile.flush()
+                    #self.training_set.close()
+                else:
+                    self.traj_to_add = 'neb_%s.traj' % (self.iteration - 1)
+                    self.logfile.write('Trajectory to be added %s \n' % self.traj_to_add)
+                    self.logfile.flush()
+                    images_from_prev_neb = read(self.traj_to_add, index=slice(nreadimg, None))
+                    images_to_add = images_from_prev_neb[1:-1]
+                    s = 0
+
+                    adding = []
+                    for _ in images_to_add:
+                        s += 1
+                        self.logfile.write('Adding %s \n' % s)
+                        adding.append(_)
+
+                    set_calculators(adding, self.calc, write_training_set=True)
+                    self.logfile.write('Iteration %s \n' % self.iteration)
+                    self.logfile.flush()
+
+                self.training_set = Trajectory('training.traj')
+                self.logfile.write('Length of training set is now %s.\n' % len(self.training_set))
+                label = str(self.iteration)
+                amp_calc = copy.deepcopy(self.amp_calc)
+                amp_calc.set_label(label)
+                self.train(self.training_set, amp_calc, label=label)
+                del amp_calc
+                clean_train_data()
+                newcalc = Amp.load('%s.amp' % label)
+                images = set_calculators(self.neb_images, newcalc, logfile=self.logfile)
+
+                if fmax < self.fmax:
+                    fmax = self.fmax
+                else:
+                    fmax = fmax / step
+                    self.logfile.write('Step = %s, new ifmax = %s \n' % (step, fmax))
+                self.run_neb(images, fmax=fmax)
+                clean_dir(logfile=self.logfile)
+                del newcalc
+                new_neb_images = read(self.traj, index=slice(nreadimg, None))
+                newcalc = Amp.load('%s.amp' % label)
+                achieved = self.cross_validate(new_neb_images, calc=self.calc, amp_calc=newcalc)
+                self.logfile.write('Metric achieved is %s, tolerance requested is %s \n' % (float(achieved), self.tolerance))
+                clean_dir(logfile=self.logfile)
+                del newcalc
                 self.logfile.flush()
-                ini_neb_images = ini_neb_images[1:-1]
-                s = 0
-                #self.training_set = Trajectory('training.traj', 'a')
-                adding = []
-                for _ in ini_neb_images:
-                    s += 1
-                    self.logfile.write('Adding %s \n' % s)
-                    #_.set_calculator(self.calc)
-                    #_.get_potential_energy()
-                    #_.get_forces()
-                    #self.training_set.write(_)
-                    adding.append(_)
-                set_calculators(adding, self.calc, write_training_set=True)
-                self.logfile.write('Iteration %s \n' % self.iteration)
-                self.logfile.flush()
-                #self.training_set.close()
-            elif self.iteration == self.maxiter:
-                break
-            else:
+
+            elif fmax < self.fmax:
+                print('Line 248', fmax)
                 self.traj_to_add = 'neb_%s.traj' % (self.iteration - 1)
                 self.logfile.write('Trajectory to be added %s \n' % self.traj_to_add)
                 self.logfile.flush()
@@ -217,32 +263,88 @@ class accelerate_neb(object):
                 self.logfile.write('Iteration %s \n' % self.iteration)
                 self.logfile.flush()
 
-            self.training_set = Trajectory('training.traj')
-            self.logfile.write('Length of training set is now %s.\n' % len(self.training_set))
-            label = str(self.iteration)
-            amp_calc = copy.deepcopy(self.amp_calc)
-            amp_calc.set_label(label)
-            self.train(self.training_set, amp_calc, label=label)
-            del amp_calc
-            clean_train_data()
-            newcalc = Amp.load('%s.amp' % label)
-            images = set_calculators(self.neb_images, newcalc, logfile=self.logfile)
+                self.training_set = Trajectory('training.traj')
+                self.logfile.write('Length of training set is now %s.\n' % len(self.training_set))
+                label = str(self.iteration)
+                amp_calc = copy.deepcopy(self.amp_calc)
+                amp_calc.set_label(label)
+                self.train(self.training_set, amp_calc, label=label)
+                del amp_calc
+                clean_train_data()
+                newcalc = Amp.load('%s.amp' % label)
+                images = set_calculators(self.neb_images, newcalc, logfile=self.logfile)
 
-            if fmax < self.fmax:
                 fmax = self.fmax
-            else:
-                fmax = fmax / step
                 self.logfile.write('Step = %s, new ifmax = %s \n' % (step, fmax))
-            self.run_neb(images, fmax=fmax)
-            clean_dir(logfile=self.logfile)
-            del newcalc
-            new_neb_images = read(self.traj, index=slice(nreadimg, None))
-            newcalc = Amp.load('%s.amp' % label)
-            achieved = self.cross_validate(new_neb_images, calc=self.calc, amp_calc=newcalc)
-            self.logfile.write('Metric achieved is %s, tolerance requested is %s \n' % (float(achieved), self.tolerance))
-            clean_dir(logfile=self.logfile)
-            del newcalc
-            self.logfile.flush()
+                self.run_neb(images, fmax=fmax)
+                clean_dir(logfile=self.logfile)
+                del newcalc
+                new_neb_images = read(self.traj, index=slice(nreadimg, None))
+                newcalc = Amp.load('%s.amp' % label)
+                achieved = self.cross_validate(new_neb_images, calc=self.calc, amp_calc=newcalc)
+                self.logfile.write('Metric achieved is %s, tolerance requested is %s \n' % (float(achieved), self.tolerance))
+                clean_dir(logfile=self.logfile)
+                del newcalc
+                self.logfile.flush()
+
+            elif self.iteration == self.maxiter:
+                print('Line 294', fmax)
+                self.logfile.write('Maximum number of iterations reached')
+                break
+
+            elif fmax == self.fmax:
+                print('Line 299', fmax)
+                self.logfile.write("Calculation converged!\n")
+                self.logfile.write('     fmax = %s.\n' % fmax)
+                self.logfile.write('tolerance = %s.\n' % float(self.tolerance))
+                self.logfile.write(' achieved = %s.\n' % float(achieved))
+                break
+
+            else:
+                print('Line 307', fmax)
+                self.traj_to_add = 'neb_%s.traj' % (self.iteration - 1)
+                self.logfile.write('Trajectory to be added %s \n' % self.traj_to_add)
+                self.logfile.flush()
+                images_from_prev_neb = read(self.traj_to_add, index=slice(nreadimg, None))
+                images_to_add = images_from_prev_neb[1:-1]
+                s = 0
+
+                adding = []
+                for _ in images_to_add:
+                    s += 1
+                    self.logfile.write('Adding %s \n' % s)
+                    adding.append(_)
+
+                set_calculators(adding, self.calc, write_training_set=True)
+                self.logfile.write('Iteration %s \n' % self.iteration)
+                self.logfile.flush()
+
+                self.training_set = Trajectory('training.traj')
+                self.logfile.write('Length of training set is now %s.\n' % len(self.training_set))
+                label = str(self.iteration)
+                amp_calc = copy.deepcopy(self.amp_calc)
+                amp_calc.set_label(label)
+                self.train(self.training_set, amp_calc, label=label)
+                del amp_calc
+                clean_train_data()
+                newcalc = Amp.load('%s.amp' % label)
+                images = set_calculators(self.neb_images, newcalc, logfile=self.logfile)
+
+                if fmax < self.fmax:
+                    fmax = self.fmax
+                else:
+                    fmax = fmax / step
+                    self.logfile.write('Step = %s, new ifmax = %s \n' % (step, fmax))
+                self.run_neb(images, fmax=fmax)
+                clean_dir(logfile=self.logfile)
+                del newcalc
+                new_neb_images = read(self.traj, index=slice(nreadimg, None))
+                newcalc = Amp.load('%s.amp' % label)
+                achieved = self.cross_validate(new_neb_images, calc=self.calc, amp_calc=newcalc)
+                self.logfile.write('Metric achieved is %s, tolerance requested is %s \n' % (float(achieved), self.tolerance))
+                clean_dir(logfile=self.logfile)
+                del newcalc
+                self.logfile.flush()
 
     def train(self, trainingset, amp_calc, label=None):
         """This method takes care of training
@@ -314,7 +416,6 @@ def set_calculators(images, calc, label=None, logfile=None,
 
     if write_training_set is True:
        if os.path.isfile('training.traj'):
-           print(len(images))
            training_file = Trajectory('training.traj', mode='a')
        else:
            training_file = Trajectory('training.traj', mode='w')
