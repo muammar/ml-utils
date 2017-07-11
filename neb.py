@@ -35,9 +35,11 @@ class accelerate_neb(object):
         exact.
     fmax : float
         The maximum force allowed by the optimizer.
+    step : float
+        Useful to help the convergence. This number divides ifmax.
     """
     def __init__(self, initial=None, final=None, tolerance=0.01, maxiter=200,
-            fmax=0.05, ifmax=0.1, logfile=None):
+            fmax=0.05, ifmax=None, logfile=None, step=None):
 
         if logfile is None:
             logfile = 'acceleration.log'
@@ -47,7 +49,12 @@ class accelerate_neb(object):
         self.maxiter = maxiter
         self.tolerance = tolerance
         self.fmax = fmax
-        self.ifmax = ifmax
+        self.step = step
+
+        if ifmax is None:
+            self.ifmax = fmax
+        else:
+            self.ifmax = ifmax
 
         self.logfile = open(logfile, 'w')
 
@@ -156,13 +163,19 @@ class accelerate_neb(object):
             del newcalc
             newcalc = Amp.load('%s.amp' % label)
             achieved = self.cross_validate(ini_neb_images, calc=self.calc, amp_calc=newcalc)
+            self.logfile.write('Metric achieved is %s, tolerance requested is %s \n' % (float(achieved), self.tolerance))
             clean_dir(logfile=self.logfile)
             del newcalc
             self.logfile.flush()
             self.training_set.close()
 
-        denominator = 2
+        if self.step is None:
+            step = 1.
+        else:
+            step = self.step
         fmax = self.ifmax
+        self.logfile.write('Step = %s, ifmax = %s, fmax = %s \n' % (step, fmax, self.fmax))
+
         while achieved > self.tolerance:
             self.iteration += 1
             if (self.iteration - 1)  == 0:
@@ -188,7 +201,6 @@ class accelerate_neb(object):
             elif self.iteration == self.maxiter:
                 break
             else:
-                print('Aqui')
                 self.traj_to_add = 'neb_%s.traj' % (self.iteration - 1)
                 self.logfile.write('Trajectory to be added %s \n' % self.traj_to_add)
                 self.logfile.flush()
@@ -216,19 +228,18 @@ class accelerate_neb(object):
             newcalc = Amp.load('%s.amp' % label)
             images = set_calculators(self.neb_images, newcalc, logfile=self.logfile)
 
-            print(fmax)
-
             if fmax < self.fmax:
                 fmax = self.fmax
             else:
-                fmax = fmax / denominator
-            print('The set fmax is %s' % fmax)
+                fmax = fmax / step
+                self.logfile.write('Step = %s, new ifmax = %s \n' % (step, fmax))
             self.run_neb(images, fmax=fmax)
             clean_dir(logfile=self.logfile)
             del newcalc
             new_neb_images = read(self.traj, index=slice(nreadimg, None))
             newcalc = Amp.load('%s.amp' % label)
             achieved = self.cross_validate(new_neb_images, calc=self.calc, amp_calc=newcalc)
+            self.logfile.write('Metric achieved is %s, tolerance requested is %s \n' % (float(achieved), self.tolerance))
             clean_dir(logfile=self.logfile)
             del newcalc
             self.logfile.flush()
@@ -288,7 +299,6 @@ class accelerate_neb(object):
             dft_energies.append(energy)
 
         metric = mean_absolute_error(dft_energies, amp_energies)
-        print(metric)
         #self.logfile('The metric is %s. \n ' % metric)
         #self.logfile.flush()
         return metric
