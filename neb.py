@@ -1,18 +1,18 @@
 # This module was written by Muammar El Khatib <muammar@brown.edu>
 
+# General imports
+from sklearn.metrics import mean_absolute_error
+import subprocess
+import os.path
+import copy
+
 # ASE imports
 from ase.io import read, Trajectory, write
 from ase.neb import NEB
 from ase.optimize import BFGS
 
-
 # Amp imports
 from amp import Amp
-
-from sklearn.metrics import mean_absolute_error
-import subprocess
-import os.path
-
 
 class accelerate_neb(object):
     """Accelerating NEB calculations using Machine Learning
@@ -127,7 +127,9 @@ class accelerate_neb(object):
 
         if interpolate is True:
             neb.interpolate()
-            set_calculators(neb.images, self.calc, write_training_set=True)
+            amp_calc = copy.deepcopy(self.calc)
+            set_calculators(neb.images, amp_calc, write_training_set=True)
+            del amp_calc
             return neb.images
 
         else:
@@ -149,18 +151,16 @@ class accelerate_neb(object):
             self.logfile.write('Length of training set is %s. \n' % len(self.training_set))
             self.logfile.flush()
             label = str(self.iteration)
-            amp_calc = self.amp_calc
+            amp_calc = copy.deepcopy(self.amp_calc)
             amp_calc.set_label(label)
             self.train(self.training_set, amp_calc, label=label)
             del amp_calc
             clean_train_data()
-            newcalc = Amp.load('%s.amp' % label)
             self.run_neb(self.neb_images, fmax=self.ifmax)
             clean_dir(logfile=self.logfile)
             self.logfile.write('Trajectory file used is %s \n' % self.traj)
             self.logfile.flush()
             ini_neb_images = read(self.traj, index=slice(nreadimg, None))
-            del newcalc
             newcalc = Amp.load('%s.amp' % label)
             achieved = self.cross_validate(ini_neb_images, calc=self.calc, amp_calc=newcalc)
             self.logfile.write('Metric achieved is %s, tolerance requested is %s \n' % (float(achieved), self.tolerance))
@@ -195,7 +195,6 @@ class accelerate_neb(object):
                     adding.append(_)
                 set_calculators(adding, self.calc, write_training_set=True)
                 self.logfile.write('Iteration %s \n' % self.iteration)
-                self.logfile.write('Length of training set is now %s.\n' % len(self.training_set))
                 self.logfile.flush()
                 #self.training_set.close()
             elif self.iteration == self.maxiter:
@@ -216,11 +215,12 @@ class accelerate_neb(object):
 
                 set_calculators(adding, self.calc, write_training_set=True)
                 self.logfile.write('Iteration %s \n' % self.iteration)
-                self.logfile.write('Length of training set is %s.\n' % len(self.training_set))
                 self.logfile.flush()
+
             self.training_set = Trajectory('training.traj')
+            self.logfile.write('Length of training set is now %s.\n' % len(self.training_set))
             label = str(self.iteration)
-            amp_calc = self.amp_calc
+            amp_calc = copy.deepcopy(self.amp_calc)
             amp_calc.set_label(label)
             self.train(self.training_set, amp_calc, label=label)
             del amp_calc
@@ -259,11 +259,12 @@ class accelerate_neb(object):
         if label == None:
             label = str(self.iteration)
         try:
-            amp_calc.dblabel = label
-            amp_calc.label = label
-            amp_calc.train(trainingset)
+            calc = copy.deepcopy(amp_calc)
+            calc.dblabel = label
+            calc.label = label
+            calc.train(trainingset)
             #subprocess.call(['mv', 'amp-log.txt', label + '-train.log'])
-            del amp_calc
+            del calc
         except:
             raise
 
