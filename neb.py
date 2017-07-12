@@ -117,19 +117,13 @@ class accelerate_neb(object):
         interpolate : bool
             Interpolate images. Needed when initializing this module.
         """
-        if fmax == None:
-            fmax = self.fmax
-
-        self.logfile.write('Fmax is %s \n' % fmax)
-        self.logfile.flush()
-
         neb = NEB(images)
 
         if interpolate is True:
             neb.interpolate()
-            amp_calc = copy.deepcopy(self.calc)
-            set_calculators(neb.images, amp_calc, write_training_set=True)
-            del amp_calc
+            calc = self.calc
+            set_calculators(neb.images, calc, write_training_set=True)
+            del calc
             return neb.images
 
         else:
@@ -143,6 +137,13 @@ class accelerate_neb(object):
         """This method performs all the acceleration algorithm"""
 
         nreadimg = -(self.intermediates + 2)
+
+        if self.step is None:
+            step = 1.
+        else:
+            step = self.step
+        fmax = self.ifmax
+
         if self.initialized is True and self.trained is False:
             self.iteration = 0
             self.training_set = Trajectory('training.traj')
@@ -156,7 +157,8 @@ class accelerate_neb(object):
             self.train(self.training_set, amp_calc, label=label)
             del amp_calc
             clean_train_data()
-            self.run_neb(self.neb_images, fmax=self.ifmax)
+            self.logfile.write('Step = %s, ifmax = %s, fmax = %s \n' % (step, fmax, self.fmax))
+            self.run_neb(self.neb_images, fmax=fmax)
             clean_dir(logfile=self.logfile)
             self.logfile.write('Trajectory file used is %s \n' % self.traj)
             self.logfile.flush()
@@ -169,15 +171,14 @@ class accelerate_neb(object):
             self.logfile.flush()
             self.training_set.close()
 
-        if self.step is None:
-            step = 1.
-        else:
-            step = self.step
-        fmax = self.ifmax
-        self.logfile.write('Step = %s, ifmax = %s, fmax = %s \n' % (step, fmax, self.fmax))
 
         while True:
             self.iteration += 1
+            if fmax < self.fmax or fmax == self.fmax:
+                fmax = self.fmax
+            else:
+                fmax = fmax / step
+                self.logfile.write('Step = %s, new ifmax = %s \n' % (step, fmax))
             if achieved > self.tolerance:
                 print('Line 182', fmax)
                 if (self.iteration - 1)  == 0:
@@ -228,11 +229,6 @@ class accelerate_neb(object):
                 newcalc = Amp.load('%s.amp' % label)
                 images = set_calculators(self.neb_images, newcalc, logfile=self.logfile)
 
-                if fmax < self.fmax:
-                    fmax = self.fmax
-                else:
-                    fmax = fmax / step
-                    self.logfile.write('Step = %s, new ifmax = %s \n' % (step, fmax))
                 self.run_neb(images, fmax=fmax)
                 clean_dir(logfile=self.logfile)
                 del newcalc
@@ -243,6 +239,19 @@ class accelerate_neb(object):
                 clean_dir(logfile=self.logfile)
                 del newcalc
                 self.logfile.flush()
+
+            elif self.iteration == self.maxiter:
+                print('Line 294', fmax)
+                self.logfile.write('Maximum number of iterations reached')
+                break
+
+            elif fmax == self.fmax:
+                print('Line 299', fmax)
+                self.logfile.write("Calculation converged!\n")
+                self.logfile.write('     fmax = %s.\n' % fmax)
+                self.logfile.write('tolerance = %s.\n' % float(self.tolerance))
+                self.logfile.write(' achieved = %s.\n' % float(achieved))
+                break
 
             elif fmax < self.fmax:
                 print('Line 248', fmax)
@@ -275,7 +284,7 @@ class accelerate_neb(object):
                 images = set_calculators(self.neb_images, newcalc, logfile=self.logfile)
 
                 fmax = self.fmax
-                self.logfile.write('Step = %s, new ifmax = %s \n' % (step, fmax))
+                self.logfile.write('Step = %s, input requested fmax = %s \n' % (step, fmax))
                 self.run_neb(images, fmax=fmax)
                 clean_dir(logfile=self.logfile)
                 del newcalc
@@ -286,19 +295,6 @@ class accelerate_neb(object):
                 clean_dir(logfile=self.logfile)
                 del newcalc
                 self.logfile.flush()
-
-            elif self.iteration == self.maxiter:
-                print('Line 294', fmax)
-                self.logfile.write('Maximum number of iterations reached')
-                break
-
-            elif fmax == self.fmax:
-                print('Line 299', fmax)
-                self.logfile.write("Calculation converged!\n")
-                self.logfile.write('     fmax = %s.\n' % fmax)
-                self.logfile.write('tolerance = %s.\n' % float(self.tolerance))
-                self.logfile.write(' achieved = %s.\n' % float(achieved))
-                break
 
             else:
                 print('Line 307', fmax)
@@ -330,11 +326,6 @@ class accelerate_neb(object):
                 newcalc = Amp.load('%s.amp' % label)
                 images = set_calculators(self.neb_images, newcalc, logfile=self.logfile)
 
-                if fmax < self.fmax:
-                    fmax = self.fmax
-                else:
-                    fmax = fmax / step
-                    self.logfile.write('Step = %s, new ifmax = %s \n' % (step, fmax))
                 self.run_neb(images, fmax=fmax)
                 clean_dir(logfile=self.logfile)
                 del newcalc
