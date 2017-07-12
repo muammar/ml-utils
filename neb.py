@@ -50,6 +50,7 @@ class accelerate_neb(object):
         self.tolerance = tolerance
         self.fmax = fmax
         self.step = step
+        self.final_fmax = False
 
         if ifmax is None:
             self.ifmax = fmax
@@ -89,9 +90,6 @@ class accelerate_neb(object):
             for intermediate in range(self.intermediates):
                 image = self.initial.copy()
                 image.set_calculator(self.calc)
-                image.get_potential_energy()
-                image.get_forces()
-                #image.set_constraint(self.calc)
                 images.append(image)
 
             images.append(self.final)
@@ -174,10 +172,10 @@ class accelerate_neb(object):
 
         while True:
             self.iteration += 1
+            fmax = fmax / step
             if fmax < self.fmax or fmax == self.fmax:
                 fmax = self.fmax
             else:
-                fmax = fmax / step
                 self.logfile.write('Step = %s, new ifmax = %s \n' % (step, fmax))
             if achieved > self.tolerance:
                 print('Line 182', fmax)
@@ -245,7 +243,7 @@ class accelerate_neb(object):
                 self.logfile.write('Maximum number of iterations reached')
                 break
 
-            elif fmax == self.fmax:
+            elif fmax == self.fmax and self.final_fmax is True:
                 print('Line 299', fmax)
                 self.logfile.write("Calculation converged!\n")
                 self.logfile.write('     fmax = %s.\n' % fmax)
@@ -298,6 +296,8 @@ class accelerate_neb(object):
 
             else:
                 print('Line 307', fmax)
+                if fmax == self.fmax:
+                    self.final_fmax = True
                 self.traj_to_add = 'neb_%s.traj' % (self.iteration - 1)
                 self.logfile.write('Trajectory to be added %s \n' % self.traj_to_add)
                 self.logfile.flush()
