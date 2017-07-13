@@ -65,7 +65,7 @@ class accelerate_neb(object):
         else:
             self.logfile.write('You need to specify things')
 
-    def initialize(self, calc=None, amp_calc=None, climb=False, intermediates=None):
+    def initialize(self, calc=None, amp_calc=None, climb=False, intermediates=None, restart=False):
         """Method to initialize the acceleration of NEB
 
         Parameters
@@ -78,15 +78,18 @@ class accelerate_neb(object):
             Number of intermediate images for the NEB calculation.
         climb : bool
             Whether or not NEB will be run using climbing image mode.
+        restart : bool
+            Restart a calculation.
         """
 
         self.calc = calc
         self.amp_calc = amp_calc
         self.intermediates = intermediates
+        self.initialize = restart
 
-        images = [ self.initial ]
 
         if self.initialized is False:
+            images = [ self.initial ]
             for intermediate in range(self.intermediates):
                 image = self.initial.copy()
                 image.set_calculator(self.calc)
