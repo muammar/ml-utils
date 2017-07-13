@@ -85,7 +85,7 @@ class accelerate_neb(object):
         self.calc = calc
         self.amp_calc = amp_calc
         self.intermediates = intermediates
-        self.initialize = restart
+        self.initialized = restart
 
 
         if self.initialized is False:
