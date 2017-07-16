@@ -8,8 +8,10 @@ import copy
 
 # ASE imports
 from ase.io import read, Trajectory, write
-from ase.neb import NEB
+#from ase.neb import NEB
+from ase.neb import SingleCalculatorNEB as NEB
 from ase.optimize import BFGS
+from ase.parallel import world
 
 # Amp imports
 from amp import Amp
@@ -37,6 +39,8 @@ class accelerate_neb(object):
         The maximum force allowed by the optimizer.
     step : float
         Useful to help the convergence. This number divides ifmax.
+    logfile : str
+        Path to create logfile.
     """
     def __init__(self, initial=None, final=None, tolerance=0.01, maxiter=200,
             fmax=0.05, ifmax=None, logfile=None, step=None):
@@ -65,13 +69,15 @@ class accelerate_neb(object):
         else:
             self.logfile.write('You need to specify things')
 
-    def initialize(self, calc=None, amp_calc=None, climb=False, intermediates=None, restart=False):
+    def initialize(self, calc=None, amp_calc=None, climb=False,
+            intermediates=None, restart=False, cores=None):
         """Method to initialize the acceleration of NEB
 
         Parameters
         ----------
-        calc : object
-            This is the calculator used to perform DFT calculations.
+        calc : object or str
+            This is the calculator used to perform DFT calculations. GPAW is
+            weird and you have to pass calc as a string.
         amp_calc : object
             This is the machine learning model used to perform predictions.
         intermediates : int
@@ -83,10 +89,21 @@ class accelerate_neb(object):
         """
 
         self.calc = calc
+        self.cores = cores
+        self.logfile.write('NEB acceleration initialize\n')
+        if self.cores != None:
+            self.logfile.write('Number of cores for GPAW is %s \n' % self.cores)
+            self.logfile.flush()
+
+        if calc == None:
+            self.calc_name = 'GPAW'
+        else:
+            self.calc_name =  self.calc.__class__.__name__
+
         self.amp_calc = amp_calc
         self.intermediates = intermediates
         self.initialized = restart
-
+        self.nreadimg = (self.intermediates + 2)
 
         if self.initialized is False:
             images = [ self.initial ]
@@ -96,17 +113,16 @@ class accelerate_neb(object):
                 images.append(image)
 
             images.append(self.final)
-            self.neb_images = self.run_neb(images, interpolate=True)
+
+            if self.calc_name != 'GPAW':
+                self.neb_images = self.run_neb(images, interpolate=True)
+            else:
+                self.run_neb(images, interpolate=True)
+                self.neb_images = read('training.traj', index=slice(0, self.nreadimg))
 
             self.initialized = True
-
-        #print('NON INTERPOLATED')
-        #for image in images:
-        #    print(image.get_potential_energy())
-
-        #print('INTERPOLATION')
-        #for image in self.initial_set:
-        #    print(image.get_potential_energy())
+        else:
+            self.neb_images = read('training.traj', index=slice(0, self.nreadimg))
 
     def run_neb(self, images, interpolate=False, fmax=None):
         """This method runs NEB calculation
@@ -123,7 +139,13 @@ class accelerate_neb(object):
         if interpolate is True:
             neb.interpolate()
             calc = self.calc
-            set_calculators(neb.images, calc, write_training_set=True)
+            self.set_calculators(
+                    neb.images,
+                    calc,
+                    calc_name=self.calc_name,
+                    write_training_set=True,
+                    cores=self.cores
+                    )
             del calc
             return neb.images
 
@@ -159,7 +181,12 @@ class accelerate_neb(object):
             del amp_calc
             clean_train_data()
             self.logfile.write('Step = %s, ifmax = %s, fmax = %s \n' % (step, fmax, self.fmax))
+            newcalc = Amp.load('%s.amp' % label)
+            calc_name = newcalc.__class__.__name__
+            images = self.set_calculators(self.neb_images, newcalc,
+                    calc_name=calc_name, logfile=self.logfile, cores=self.cores)
             self.run_neb(self.neb_images, fmax=fmax)
+            del newcalc
             clean_dir(logfile=self.logfile)
             self.logfile.write('Trajectory file used is %s \n' % self.traj)
             self.logfile.flush()
@@ -171,7 +198,6 @@ class accelerate_neb(object):
             del newcalc
             self.logfile.flush()
             self.training_set.close()
-
 
         while True:
             self.iteration += 1
@@ -197,7 +223,8 @@ class accelerate_neb(object):
                         #_.get_forces()
                         #self.training_set.write(_)
                         adding.append(_)
-                    set_calculators(adding, self.calc, write_training_set=True)
+                    self.set_calculators(adding, self.calc,
+                            calc_name=self.calc_name, write_training_set=True, cores=self.cores)
                     self.logfile.write('Iteration %s \n' % self.iteration)
                     self.logfile.flush()
                     #self.training_set.close()
@@ -215,7 +242,8 @@ class accelerate_neb(object):
                         self.logfile.write('Adding %s \n' % s)
                         adding.append(_)
 
-                    set_calculators(adding, self.calc, write_training_set=True)
+                    self.set_calculators(adding, self.calc,
+                            calc_name=self.calc_name, write_training_set=True, cores=self.cores)
                     self.logfile.write('Iteration %s \n' % self.iteration)
                     self.logfile.flush()
 
@@ -228,7 +256,9 @@ class accelerate_neb(object):
                 del amp_calc
                 clean_train_data()
                 newcalc = Amp.load('%s.amp' % label)
-                images = set_calculators(self.neb_images, newcalc, logfile=self.logfile)
+                calc_name = newcalc.__class__.__name__
+                images = self.set_calculators(self.neb_images, newcalc,
+                        calc_name=calc_name, logfile=self.logfile, cores=self.cores)
 
                 self.run_neb(images, fmax=fmax)
                 clean_dir(logfile=self.logfile)
@@ -269,7 +299,8 @@ class accelerate_neb(object):
                     self.logfile.write('Adding %s \n' % s)
                     adding.append(_)
 
-                set_calculators(adding, self.calc, write_training_set=True)
+                self.set_calculators(adding, self.calc, calc_write=self.calc_write,
+                        write_training_set=True, cores=self.cores)
                 self.logfile.write('Iteration %s \n' % self.iteration)
                 self.logfile.flush()
 
@@ -282,7 +313,8 @@ class accelerate_neb(object):
                 del amp_calc
                 clean_train_data()
                 newcalc = Amp.load('%s.amp' % label)
-                images = set_calculators(self.neb_images, newcalc, logfile=self.logfile)
+                images = self.set_calculators(self.neb_images, newcalc,
+                        calc_write=self.calc_write, logfile=self.logfile, cores=self.cores)
 
                 fmax = self.fmax
                 self.logfile.write('Step = %s, input requested fmax = %s \n' % (step, fmax))
@@ -314,7 +346,8 @@ class accelerate_neb(object):
                     self.logfile.write('Adding %s \n' % s)
                     adding.append(_)
 
-                set_calculators(adding, self.calc, write_training_set=True)
+                self.set_calculators(adding, self.calc, calc_name=self.calc_name,
+                        write_training_set=True, cores=self.cores)
                 self.logfile.write('Iteration %s \n' % self.iteration)
                 self.logfile.flush()
 
@@ -327,7 +360,9 @@ class accelerate_neb(object):
                 del amp_calc
                 clean_train_data()
                 newcalc = Amp.load('%s.amp' % label)
-                images = set_calculators(self.neb_images, newcalc, logfile=self.logfile)
+                calc_name = newcalc.__class__.__name__
+                images = self.set_calculators(self.neb_images, newcalc,
+                        calc_name=calc_name, logfile=self.logfile, cores=self.cores)
 
                 self.run_neb(images, fmax=fmax)
                 clean_dir(logfile=self.logfile)
@@ -383,14 +418,22 @@ class accelerate_neb(object):
         self.logfile.write('Length of NEB images %s \n' % len(neb_images))
 
         amp_energies = []
-        amp_images = set_calculators(neb_images, amp_calc)
+        calc_name = amp_calc.__class__.__name__
+        amp_images = self.set_calculators(neb_images, amp_calc,
+                calc_name=calc_name)
 
         for image in amp_images:
             energy = image.get_potential_energy()
             amp_energies.append(energy)
 
         dft_energies = []
-        dft_images = set_calculators(neb_images, calc)
+
+        if self.calc_name != 'GPAW':
+            dft_images = self.set_calculators(neb_images, calc)
+        else:
+            self.set_calculators(neb_images, amp_calc, calc_name=self.calc_name, cores=self.cores)
+            dft_images = Trajectory('gpaw.traj')
+
         for image in dft_images:
             energy = image.get_potential_energy()
             dft_energies.append(energy)
@@ -400,42 +443,84 @@ class accelerate_neb(object):
         #self.logfile.flush()
         return metric
 
-def set_calculators(images, calc, label=None, logfile=None,
-        write_training_set=False, write_neb=False):
-    """docstring for set_calculators"""
+    def run_gpaw(self, images, write_training_set=False):
+        """Method for rinning gpaw weird parallelization
 
-    if label != None:
-        self.logfile.write('Label was set to %s\n' % label)
-        calc.label = label
+        Parameters
+        ---------
+        images : object
+            The images.
+        write_training_set : bool
+            Whether we will write training set to trajectory file.
+        """
+        input_traj = Trajectory('input.traj', mode='w')
+        for image in images:
+            input_traj.write(image)
+        input_traj.close()
 
-    if write_training_set is True:
-       if os.path.isfile('training.traj'):
-           training_file = Trajectory('training.traj', mode='a')
-       else:
-           training_file = Trajectory('training.traj', mode='w')
+        cores = str(self.cores)
+        gpaw = [
+                'mpiexec',
+                '-n', cores,
+                'gpaw-python',
+                'gpaw_script.py'
+                ]
+        subprocess.call(gpaw)
 
-    if write_neb is True:
-        neb_file = Trajectory('neb_images.traj', mode='w')
+    def set_calculators(self, images, calc, calc_name=None, label=None, logfile=None,
+            write_training_set=False, cores=None):
+        """Function to set calculators
 
-    for index in range(len(images)):
-        images[index].set_calculator(calc)
-        images[index].get_potential_energy(apply_constraint=False)
-        images[index].get_forces(apply_constraint=False)
+        Parameters
+        ----------
+        images : object
+            The images to set calculators.
+        calc : object
+            Calculator.
+        calc_name : str
+            Name of the calculator. Useful when running GPAW.
+        label : str
+            Set a label for Amp calculators.
+        logfile : str
+            Path to create logfile.
+        write_training_set : bool
+            Whether we will write training set to trajectory file.
+        """
+
+        if label != None:
+            self.logfile.write('Label was set to %s\n' % label)
+            calc.label = label
 
         if write_training_set is True:
-            training_file.write(images[index])
-        elif write_neb is True:
-            neb_file.write(images[index])
+           if os.path.isfile('training.traj'):
+               training_file = Trajectory('training.traj', mode='a')
+           else:
+               training_file = Trajectory('training.traj', mode='w')
 
-    if logfile is not None:
-        logfile.write('Calculator set for %s images\n' % len(images))
-        logfile.flush()
+        if calc_name != 'GPAW':
+            for index in range(len(images)):
+                images[index].set_calculator(calc)
+                images[index].get_potential_energy(apply_constraint=False)
+                images[index].get_forces(apply_constraint=False)
 
-    if write_training_set is True:
-        training_file.close()
-    elif write_neb is True:
-        neb_file.close()
-    return images
+                if write_training_set is True:
+                    training_file.write(images[index])
+        else:
+            write_gpaw_file()
+            self.run_gpaw(images)
+            if write_training_set is True:
+                to_dump = Trajectory('gpaw.traj', mode='r')
+                for element in to_dump:
+                    training_file.write(element)
+
+
+        if logfile is not None:
+            logfile.write('Calculator set for %s images\n' % len(images))
+            logfile.flush()
+
+        if write_training_set is True and calc_name != 'GPAW':
+            training_file.close()
+        return images
 
 def clean_dir(logfile=None):
     """Cleaning some directories"""
@@ -455,3 +540,37 @@ def clean_dir(logfile=None):
 
 def clean_train_data():
     subprocess.call('rm -r *.ampdb *checkpoints*', shell=True)
+
+def write_gpaw_file():
+    """Ugly function that writes a gpaw python script. The problem is not you
+    `write_gpaw_file()`, the problem is me.
+    """
+
+    gpaw_file = open('gpaw_script.py', 'w')
+    header0 = """
+#!/usr/bin/env python
+from gpaw import GPAW, PW, FermiDirac
+from ase.io import read, Trajectory, write
+
+input = Trajectory('input.traj', mode='r')
+output = Trajectory('gpaw.traj', mode='w')
+
+"""
+    gpaw_file.write(header0)
+
+    reading = open('gpaw.calc', 'r')
+    header1 = reading.readlines()
+    for line in header1:
+        gpaw_file.write(line)
+
+    header2 = """
+for image in input:
+    image.set_calculator(calc)
+    image.get_potential_energy()
+    image.get_forces()
+    output.write(image)
+
+output.close()
+"""
+    gpaw_file.write(header2)
+
