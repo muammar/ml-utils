@@ -10,8 +10,6 @@ import copy
 from ase.io import read, Trajectory, write
 #from ase.neb import NEB
 from ase.neb import SingleCalculatorNEB as NEB
-from ase.optimize import BFGS
-from ase.parallel import world
 
 # Amp imports
 from amp import Amp
@@ -70,7 +68,7 @@ class accelerate_neb(object):
             self.logfile.write('You need to specify things')
 
     def initialize(self, calc=None, amp_calc=None, climb=False,
-            intermediates=None, restart=False, cores=None):
+            intermediates=None, restart=False, cores=None, neb_optimizer='BFGS'):
         """Method to initialize the acceleration of NEB
 
         Parameters
@@ -86,14 +84,19 @@ class accelerate_neb(object):
             Whether or not NEB will be run using climbing image mode.
         restart : bool
             Restart a calculation.
+        neb_optimizer : str
+            Optimizer used by NEB.
         """
 
         self.calc = calc
         self.cores = cores
+        self.neb_optimizer = neb_optimizer
         self.logfile.write('NEB acceleration initialize\n')
         if self.cores != None:
             self.logfile.write('Number of cores for GPAW is %s \n' % self.cores)
             self.logfile.flush()
+
+        self.logfile.write('The optimizer used in NEB is %s \n' % self.neb_optimizer)
 
         if calc == None:
             self.calc_name = 'GPAW'
@@ -152,7 +155,14 @@ class accelerate_neb(object):
         else:
             self.traj = 'neb_%s.traj' % self.iteration
             logfile = 'neb_%s.log' % self.iteration
-            qn = BFGS(neb, trajectory=self.traj, logfile=logfile)
+
+            if self.neb_optimizer.lower() == 'bfgs':
+                from ase.optimize import BFGS
+                qn = BFGS(neb, trajectory=self.traj, logfile=logfile)
+            elif self.neb_optimizer.lower() == 'fire':
+                from ase.optimize import FIRE
+                qn = FIRE(neb, trajectory=self.traj, logfile=logfile)
+
             qn.run(fmax=fmax)
         clean_dir(logfile=self.logfile)
 
