@@ -40,8 +40,17 @@ class accelerate_neb(object):
     logfile : str
         Path to create logfile.
     """
-    def __init__(self, initial=None, final=None, tolerance=0.01, maxiter=200,
-            fmax=0.05, ifmax=None, logfile=None, step=None):
+    def __init__(
+            self,
+            initial=None,
+            final=None,
+            tolerance=0.01,
+            maxiter=200,
+            fmax=0.05,
+            ifmax=None,
+            logfile=None,
+            step=None
+            ):
 
         if logfile is None:
             logfile = 'acceleration.log'
@@ -65,17 +74,26 @@ class accelerate_neb(object):
             self.initial = read(initial)
             self.final = read(final)
         else:
-            self.logfile.write('You need to specify things')
+            self.logfile.write('You need to an initial and final states.')
 
-    def initialize(self, calc=None, amp_calc=None, climb=False,
-            intermediates=None, restart=False, cores=None, neb_optimizer='BFGS'):
+    def initialize(
+            self,
+            calc=None,
+            amp_calc=None,
+            climb=False,
+            intermediates=None,
+            restart=False,
+            cores=None,
+            neb_optimizer='BFGS'
+            ):
         """Method to initialize the acceleration of NEB
 
         Parameters
         ----------
         calc : object or str
             This is the calculator used to perform DFT calculations. GPAW is
-            weird and you have to pass calc as a string.
+            weird and you have to pass calc as a string or None because we will
+            operate differently with it.
         amp_calc : object
             This is the machine learning model used to perform predictions.
         intermediates : int
@@ -87,16 +105,16 @@ class accelerate_neb(object):
         neb_optimizer : str
             Optimizer used by NEB.
         """
-
         self.calc = calc
         self.cores = cores
         self.neb_optimizer = neb_optimizer
         self.logfile.write('NEB acceleration initialize\n')
+
         if self.cores != None:
             self.logfile.write('Number of cores for GPAW is %s \n' % self.cores)
             self.logfile.flush()
 
-        self.logfile.write('The optimizer used in NEB is %s \n' % self.neb_optimizer)
+        self.logfile.write('The optimizer used for the NEB calculation is %s \n' % self.neb_optimizer)
 
         if calc == None:
             self.calc_name = 'GPAW'
@@ -106,7 +124,7 @@ class accelerate_neb(object):
         self.amp_calc = amp_calc
         self.intermediates = intermediates
         self.initialized = restart
-        self.nreadimg = (self.intermediates + 2)
+        self.nreadimg = (self.intermediates + 2)    # This is the total number of images in NEB
 
         if self.initialized is False:
             images = [ self.initial ]
@@ -117,6 +135,8 @@ class accelerate_neb(object):
 
             images.append(self.final)
 
+            # When using something different from GPAW, we need to write the
+            # images to file, and then read them back.
             if self.calc_name != 'GPAW':
                 self.neb_images = self.run_neb(images, interpolate=True)
             else:
@@ -124,11 +144,12 @@ class accelerate_neb(object):
                 self.neb_images = read('training.traj', index=slice(0, self.nreadimg))
 
             self.initialized = True
-        else:
+
+        elif self.initialized is True:
             self.neb_images = read('training.traj', index=slice(0, self.nreadimg))
 
     def run_neb(self, images, interpolate=False, fmax=None):
-        """This method runs NEB calculation
+        """This method runs NEB calculations
 
         Parameters
         ----------
@@ -136,6 +157,7 @@ class accelerate_neb(object):
             Images created with ASE.
         interpolate : bool
             Interpolate images. Needed when initializing this module.
+        fmax : the maximum force to be used in your NEB.
         """
         neb = NEB(images)
 
@@ -181,8 +203,11 @@ class accelerate_neb(object):
             self.iteration = 0
             self.training_set = Trajectory('training.traj')
             self.logfile.write('Iteration %s \n' % self.iteration)
-            self.logfile.write('NEB images to slice %s \n' % nreadimg)
-            self.logfile.write('Length of training set is %s. \n' % len(self.training_set))
+            self.logfile.write('Number images to slice from NEB is %s . \n' % nreadimg)
+            self.logfile.write('New training set lenght is %s. \n' % len(self.training_set))
+            self.logfile.flush()
+
+            self.logfile.write('Starting Training, sit tight... \n')
             self.logfile.flush()
             label = str(self.iteration)
             amp_calc = copy.deepcopy(self.amp_calc)
@@ -190,20 +215,35 @@ class accelerate_neb(object):
             self.train(self.training_set, amp_calc, label=label)
             del amp_calc
             clean_train_data()
+            self.logfile.write('Training process finished. \n')
+            self.logfile.flush()
+
             self.logfile.write('Step = %s, ifmax = %s, fmax = %s \n' % (step, fmax, self.fmax))
+            self.logfile.write('Starting ML-NEB calculation... Go, and grab a cup of coffee :) \n')
+            self.logfile.flush()
             newcalc = Amp.load('%s.amp' % label)
             calc_name = newcalc.__class__.__name__
-            images = self.set_calculators(self.neb_images, newcalc,
-                    calc_name=calc_name, logfile=self.logfile, cores=self.cores)
+            images = self.set_calculators(
+                    self.neb_images,
+                    newcalc,
+                    calc_name=calc_name,
+                    logfile=self.logfile,
+                    cores=self.cores
+                    )
             self.run_neb(self.neb_images, fmax=fmax)
             del newcalc
             clean_dir(logfile=self.logfile)
-            self.logfile.write('Trajectory file used is %s \n' % self.traj)
-            self.logfile.flush()
+            self.logfile.write('ML-NEB calculation finished... \o/ \n')
+
+            # We now read the last images from the NEB: initial, intermediate,
+            # and final states.
             ini_neb_images = read(self.traj, index=slice(nreadimg, None))
+            self.logfile.write('New guessed ML-MEP were read from %s \n' % self.traj)
+            self.logfile.flush()
+
             newcalc = Amp.load('%s.amp' % label)
             achieved = self.cross_validate(ini_neb_images, calc=self.calc, amp_calc=newcalc)
-            self.logfile.write('Metric achieved is %s, tolerance requested is %s \n' % (float(achieved), self.tolerance))
+            self.logfile.write('Metric achieved is %s, tolerance requested is %s. \n' % (float(achieved), self.tolerance))
             clean_dir(logfile=self.logfile)
             del newcalc
             self.logfile.flush()
@@ -211,11 +251,17 @@ class accelerate_neb(object):
 
         while True:
             self.iteration += 1
+
+            self.logfile.write('Iteration %s \n' % self.iteration)
+            self.logfile.flush()
+
             fmax = fmax / step
             if fmax < self.fmax or fmax == self.fmax:
                 fmax = self.fmax
             else:
                 self.logfile.write('Step = %s, new ifmax = %s \n' % (step, fmax))
+                self.logfile.flush()
+
             if achieved > self.tolerance:
                 print('Line 182', fmax)
                 if (self.iteration - 1)  == 0:
@@ -223,39 +269,30 @@ class accelerate_neb(object):
                     self.logfile.flush()
                     ini_neb_images = ini_neb_images[1:-1]
                     s = 0
-                    #self.training_set = Trajectory('training.traj', 'a')
                     adding = []
                     for _ in ini_neb_images:
                         s += 1
-                        self.logfile.write('Adding %s \n' % s)
-                        #_.set_calculator(self.calc)
-                        #_.get_potential_energy()
-                        #_.get_forces()
-                        #self.training_set.write(_)
                         adding.append(_)
+                    self.logfile.write('Added %s more images to the training set \n' % s)
+                    self.logfile.flush()
                     self.set_calculators(adding, self.calc,
                             calc_name=self.calc_name, write_training_set=True, cores=self.cores)
-                    self.logfile.write('Iteration %s \n' % self.iteration)
-                    self.logfile.flush()
-                    #self.training_set.close()
                 else:
                     self.traj_to_add = 'neb_%s.traj' % (self.iteration - 1)
-                    self.logfile.write('Trajectory to be added %s \n' % self.traj_to_add)
+                    self.logfile.write('Previous NEB Trajectory read from %s \n' % self.traj_to_add)
                     self.logfile.flush()
                     images_from_prev_neb = read(self.traj_to_add, index=slice(nreadimg, None))
                     images_to_add = images_from_prev_neb[1:-1]
                     s = 0
-
                     adding = []
                     for _ in images_to_add:
                         s += 1
-                        self.logfile.write('Adding %s \n' % s)
                         adding.append(_)
+                    self.logfile.write('Added %s more images to the training set \n' % s)
+                    self.logfile.flush()
 
                     self.set_calculators(adding, self.calc,
                             calc_name=self.calc_name, write_training_set=True, cores=self.cores)
-                    self.logfile.write('Iteration %s \n' % self.iteration)
-                    self.logfile.flush()
 
                 self.training_set = Trajectory('training.traj')
                 self.logfile.write('Length of training set is now %s.\n' % len(self.training_set))
@@ -275,7 +312,11 @@ class accelerate_neb(object):
                 del newcalc
                 new_neb_images = read(self.traj, index=slice(nreadimg, None))
                 newcalc = Amp.load('%s.amp' % label)
-                achieved = self.cross_validate(new_neb_images, calc=self.calc, amp_calc=newcalc)
+                achieved = self.cross_validate(
+                        new_neb_images,
+                        calc=self.calc,
+                        amp_calc=newcalc
+                        )
                 self.logfile.write('Metric achieved is %s, tolerance requested is %s \n' % (float(achieved), self.tolerance))
                 clean_dir(logfile=self.logfile)
                 del newcalc
@@ -441,29 +482,48 @@ class accelerate_neb(object):
         if self.calc_name != 'GPAW':
             dft_images = self.set_calculators(neb_images, calc)
         else:
-            self.set_calculators(neb_images, amp_calc, calc_name=self.calc_name, cores=self.cores)
-            dft_images = Trajectory('gpaw.traj')
+            self.set_calculators(
+                    neb_images,
+                    amp_calc,
+                    calc_name=self.calc_name,
+                    cores=self.cores,
+                    cross_validate=True
+                    )
+
+            dft_images = []
+            dft_images.append(self.training_set[0])
+
+            dft_intermediates = Trajectory('gpaw.traj')
+
+            for intermediate in dft_intermediates:
+                dft_images.append(intermediate)
+
+            dft_images.append(self.training_set[len(dft_images)])
+
+        test = Trajectory('testingnew.traj', mode='w')
 
         for image in dft_images:
+            test.write(image)
             energy = image.get_potential_energy()
             dft_energies.append(energy)
+
+        test.close()
 
         metric = mean_absolute_error(dft_energies, amp_energies)
         #self.logfile('The metric is %s. \n ' % metric)
         #self.logfile.flush()
         return metric
 
-    def run_gpaw(self, images, write_training_set=False):
+    def run_gpaw(self, images):
         """Method for rinning gpaw weird parallelization
 
         Parameters
         ---------
         images : object
             The images.
-        write_training_set : bool
-            Whether we will write training set to trajectory file.
         """
         input_traj = Trajectory('input.traj', mode='w')
+
         for image in images:
             input_traj.write(image)
         input_traj.close()
@@ -478,7 +538,7 @@ class accelerate_neb(object):
         subprocess.call(gpaw)
 
     def set_calculators(self, images, calc, calc_name=None, label=None, logfile=None,
-            write_training_set=False, cores=None):
+            write_training_set=False, cores=None, cross_validate=False):
         """Function to set calculators
 
         Parameters
@@ -494,7 +554,9 @@ class accelerate_neb(object):
         logfile : str
             Path to create logfile.
         write_training_set : bool
-            Whether we will write training set to trajectory file.
+            Whether we will write (or not) training set to a trajectory file.
+        cross_validate : bool
+            Whether this method is called or not for cross validating or not.
         """
 
         if label != None:
@@ -517,12 +579,16 @@ class accelerate_neb(object):
                     training_file.write(images[index])
         else:
             write_gpaw_file()
-            self.run_gpaw(images)
+            if cross_validate is True:
+                intermediates = images[1:-1] # We only need the energy and forces of intermediates!
+                self.run_gpaw(intermediates)
+            else:
+                self.run_gpaw(images)
+
             if write_training_set is True:
                 to_dump = Trajectory('gpaw.traj', mode='r')
                 for element in to_dump:
                     training_file.write(element)
-
 
         if logfile is not None:
             logfile.write('Calculator set for %s images\n' % len(images))
@@ -583,4 +649,3 @@ for image in input:
 output.close()
 """
     gpaw_file.write(header2)
-
