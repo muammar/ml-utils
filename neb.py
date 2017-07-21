@@ -269,7 +269,7 @@ class accelerate_neb(object):
                     self.logfile.flush()
                     if os.path.isfile('images_from_neb.traj'):
                         ini_neb_images = Trajectory('images_from_neb.traj', mode='r')
-                        ini_neb_images = ini_neb_images[1:-1]
+                        ini_neb_images = list(ini_neb_images)[1:-1]
                         training_file = Trajectory('training.traj', mode='a')
                         for _ in ini_neb_images:
                             training_file.write(_)
@@ -287,7 +287,7 @@ class accelerate_neb(object):
                     self.logfile.flush()
                     if os.path.isfile('images_from_neb.traj'):
                         ini_neb_images = Trajectory('images_from_neb.traj', mode='r')
-                        ini_neb_images = ini_neb_images[1:-1]
+                        ini_neb_images = list(ini_neb_images)[1:-1]
                         training_file = Trajectory('training.traj', mode='a')
                         for _ in ini_neb_images:
                             training_file.write(_)
@@ -352,7 +352,7 @@ class accelerate_neb(object):
 
                 if os.path.isfile('images_from_neb.traj'):
                     ini_neb_images = Trajectory('images_from_neb.traj', mode='r')
-                    ini_neb_images = ini_neb_images[1:-1]
+                    ini_neb_images = list(ini_neb_images)[1:-1]
                     training_file = Trajectory('training.traj', mode='a')
                     for _ in ini_neb_images:
                         training_file.write(_)
@@ -403,7 +403,7 @@ class accelerate_neb(object):
 
                 if os.path.isfile('images_from_neb.traj'):
                     ini_neb_images = Trajectory('images_from_neb.traj', mode='r')
-                    ini_neb_images = ini_neb_images[1:-1]
+                    ini_neb_images = list(ini_neb_images)[1:-1]
                     training_file = Trajectory('training.traj', mode='a')
                     for _ in ini_neb_images:
                         training_file.write(_)
