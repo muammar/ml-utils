@@ -274,15 +274,11 @@ class accelerate_neb(object):
                             training_file.write(_)
                         training_file.close()
                     else:
-                        ini_neb_images = ini_neb_images[1:-1]
-                        s = 0
-                        adding = []
-                        for _ in ini_neb_images:
-                            s += 1
-                            adding.append(_)
-                        self.set_calculators(adding, self.calc,
-                                calc_name=self.calc_name, write_training_set=True, cores=self.cores)
-                    self.logfile.write('I added %s more images to the training set \n' % s)
+                        self.logfile.write('images_from_neb.traj does not exist\n')
+                        self.logfile.write('Aborting...\n')
+                        exit()
+                    self.logfile.write('I added %s more images to the training set \n'
+                            % len(ini_neb_images))
                     self.logfile.flush()
                 else:
                     self.traj_to_add = 'neb_%s.traj' % (self.iteration - 1)
@@ -295,18 +291,12 @@ class accelerate_neb(object):
                             training_file.write(_)
                         training_file.close()
                     else:
-                        images_from_prev_neb = read(self.traj_to_add, index=slice(nreadimg, None))
-                        images_to_add = images_from_prev_neb[1:-1]
-                        s = 0
-                        adding = []
-                        for _ in images_to_add:
-                            s += 1
-                            adding.append(_)
-                        self.set_calculators(adding, self.calc,
-                                calc_name=self.calc_name, write_training_set=True, cores=self.cores)
-                    self.logfile.write('I added %s more images to the training set \n' % s)
+                        self.logfile.write('images_from_neb.traj does not exist\n')
+                        self.logfile.write('Aborting...\n')
+                        exit()
+                    self.logfile.write('I added %s more images to the training set \n'
+                            % len(ini_neb_images))
                     self.logfile.flush()
-
 
                 self.training_set = Trajectory('training.traj')
                 self.logfile.write('Length of training set is now %s.\n' % len(self.training_set))
@@ -365,21 +355,16 @@ class accelerate_neb(object):
                         training_file.write(_)
                     training_file.close()
                 else:
-                    images_from_prev_neb = read(self.traj_to_add, index=slice(nreadimg, None))
-                    images_to_add = images_from_prev_neb[1:-1]
-                    s = 0
-
-                    adding = []
-                    for _ in images_to_add:
-                        s += 1
-                        self.logfile.write('Adding %s \n' % s)
-                        adding.append(_)
-
-                    self.set_calculators(adding, self.calc, calc_write=self.calc_write,
-                            write_training_set=True, cores=self.cores)
+                    self.logfile.write('images_from_neb.traj does not exist\n')
+                    self.logfile.write('Aborting...\n')
+                    exit()
+                self.logfile.write('I added %s more images to the training set \n'
+                        % len(ini_neb_images))
+                self.logfile.flush()
 
                 self.training_set = Trajectory('training.traj')
                 self.logfile.write('Length of training set is now %s.\n' % len(self.training_set))
+
                 label = str(self.iteration)
                 amp_calc = copy.deepcopy(self.amp_calc)
                 amp_calc.set_label(label)
@@ -419,19 +404,14 @@ class accelerate_neb(object):
                     for _ in ini_neb_images:
                         training_file.write(_)
                     training_file.close()
+
                 else:
-                    images_from_prev_neb = read(self.traj_to_add, index=slice(nreadimg, None))
-                    images_to_add = images_from_prev_neb[1:-1]
-                    s = 0
-
-                    adding = []
-                    for _ in images_to_add:
-                        s += 1
-                        self.logfile.write('Adding %s \n' % s)
-                        adding.append(_)
-
-                    self.set_calculators(adding, self.calc, calc_name=self.calc_name,
-                            write_training_set=True, cores=self.cores)
+                    self.logfile.write('images_from_neb.traj does not exist\n')
+                    self.logfile.write('Aborting...\n')
+                    exit()
+                self.logfile.write('I added %s more images to the training set \n'
+                        % len(ini_neb_images))
+                self.logfile.flush()
 
                 self.training_set = Trajectory('training.traj')
                 self.logfile.write('Length of training set is now %s.\n' % len(self.training_set))
@@ -499,8 +479,12 @@ class accelerate_neb(object):
         """
         self.logfile.write('Length of NEB images %s \n' % len(neb_images))
 
-        amp_energies = []
+        # Computing energies and forces using Amp.
+
         calc_name = amp_calc.__class__.__name__
+
+        amp_energies = []
+
         amp_images = self.set_calculators(neb_images, amp_calc,
                 calc_name=calc_name)
 
@@ -508,37 +492,37 @@ class accelerate_neb(object):
             energy = image.get_potential_energy()
             amp_energies.append(energy)
 
+        # Computing energies and forces from references
         dft_energies = []
 
-        if self.calc_name != 'GPAW':
-            dft_images = self.set_calculators(neb_images, calc)
-        else:
-            self.set_calculators(
-                    neb_images,
-                    amp_calc,
-                    calc_name=self.calc_name,
-                    cores=self.cores,
-                    cross_validate=True
-                    )
+        self.set_calculators(
+                neb_images,
+                amp_calc,
+                calc_name=self.calc_name,
+                cores=self.cores,
+                cross_validate=True
+                )
 
-            dft_images = []
-            dft_images.append(self.training_set[0])
+        dft_images = []
+        dft_images.append(self.training_set[0])
 
-            dft_intermediates = Trajectory('gpaw.traj')
+        dft_intermediates = Trajectory('calculator.traj')
 
-            for intermediate in dft_intermediates:
-                dft_images.append(intermediate)
+        for intermediate in dft_intermediates:
+            dft_images.append(intermediate)
 
-            dft_images.append(self.training_set[len(dft_images)])
+        dft_images.append(self.training_set[len(dft_images)])
 
-        test = Trajectory('images_from_neb.traj', mode='w')
+        images_from_neb = Trajectory('images_from_neb.traj', mode='w')
 
-        for image in dft_images:
-            test.write(image)
-            energy = image.get_potential_energy()
+        for i in range(len(dft_images)):
+            energy = dft_images[i].get_potential_energy()
+            forces = dft_images[i].get_forces()
             dft_energies.append(energy)
 
-        test.close()
+            images_from_neb.write(dft_images[i])
+
+        images_from_neb.close()
 
         metric = mean_absolute_error(dft_energies, amp_energies)
         #self.logfile('The metric is %s. \n ' % metric)
@@ -601,13 +585,15 @@ class accelerate_neb(object):
                training_file = Trajectory('training.traj', mode='w')
 
         if calc_name != 'GPAW':
+            intermediate_traj = Trajectory('calculator.traj', mode='w')
+            if cross_validate is True:
+                images = images[1:-1]
+
             for index in range(len(images)):
                 images[index].set_calculator(calc)
                 images[index].get_potential_energy(apply_constraint=False)
                 images[index].get_forces(apply_constraint=False)
-
-                if write_training_set is True:
-                    training_file.write(images[index])
+                intermediate_traj.write(images[index])
         else:
             write_gpaw_file()
             if cross_validate is True:
@@ -616,10 +602,10 @@ class accelerate_neb(object):
             else:
                 self.run_gpaw(images)
 
-            if write_training_set is True:
-                to_dump = Trajectory('gpaw.traj', mode='r')
-                for element in to_dump:
-                    training_file.write(element)
+        if write_training_set is True:
+            to_dump = Trajectory('calculator.traj', mode='r')
+            for element in to_dump:
+                training_file.write(element)
 
         if logfile is not None:
             logfile.write('Calculator set for %s images\n' % len(images))
@@ -646,7 +632,7 @@ def clean_dir(logfile=None):
         logfile.flush()
 
 def clean_train_data():
-    subprocess.call('rm -r *.ampdb *checkpoints*', shell=True)
+    subprocess.call('rm -r *.ampdb', shell=True)
 
 def write_gpaw_file():
     """Ugly function that writes a gpaw python script. The problem is not you
@@ -654,13 +640,12 @@ def write_gpaw_file():
     """
 
     gpaw_file = open('gpaw_script.py', 'w')
-    header0 = """
-#!/usr/bin/env python
+    header0 = """#!/usr/bin/env python
 from gpaw import GPAW, PW, FermiDirac
 from ase.io import read, Trajectory, write
 
 input = Trajectory('input.traj', mode='r')
-output = Trajectory('gpaw.traj', mode='w')
+output = Trajectory('calculator.traj', mode='w')
 
 """
     gpaw_file.write(header0)
