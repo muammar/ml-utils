@@ -108,10 +108,10 @@ class accelerate_neb(object):
         self.calc = calc
         self.cores = cores
         self.neb_optimizer = neb_optimizer
-        self.logfile.write('NEB acceleration initialize\n')
+        self.logfile.write('NEB acceleration initialized\n')
 
         if self.cores != None:
-            self.logfile.write('Number of cores for GPAW is %s \n' % self.cores)
+            self.logfile.write('Number of cores for GPAW calculator is %s \n' % self.cores)
             self.logfile.flush()
 
         self.logfile.write('The optimizer used for the NEB calculation is %s \n' % self.neb_optimizer)
@@ -203,7 +203,7 @@ class accelerate_neb(object):
             self.iteration = 0
             self.training_set = Trajectory('training.traj')
             self.logfile.write('Iteration %s \n' % self.iteration)
-            self.logfile.write('Number images to slice from NEB is %s . \n' % nreadimg)
+            self.logfile.write('Number images to slice from NEB Trajectory is %s. \n' % nreadimg)
             self.logfile.write('New training set lenght is %s. \n' % len(self.training_set))
             self.logfile.flush()
 
@@ -238,7 +238,7 @@ class accelerate_neb(object):
             # We now read the last images from the NEB: initial, intermediate,
             # and final states.
             ini_neb_images = read(self.traj, index=slice(nreadimg, None))
-            self.logfile.write('New guessed ML-MEP were read from %s \n' % self.traj)
+            self.logfile.write('New guessed ML-MEP was read from %s \n' % self.traj)
             self.logfile.flush()
 
             newcalc = Amp.load('%s.amp' % label)
@@ -267,32 +267,46 @@ class accelerate_neb(object):
                 if (self.iteration - 1)  == 0:
                     self.logfile.write('INITIAL\n')
                     self.logfile.flush()
-                    ini_neb_images = ini_neb_images[1:-1]
-                    s = 0
-                    adding = []
-                    for _ in ini_neb_images:
-                        s += 1
-                        adding.append(_)
-                    self.logfile.write('Added %s more images to the training set \n' % s)
+                    if os.path.isfile('images_from_neb.traj'):
+                        ini_neb_images = Trajectory('images_from_neb.traj', mode='r')
+                        training_file = Trajectory('training.traj', mode='a')
+                        for _ in ini_neb_images:
+                            training_file.write(_)
+                        training_file.close()
+                    else:
+                        ini_neb_images = ini_neb_images[1:-1]
+                        s = 0
+                        adding = []
+                        for _ in ini_neb_images:
+                            s += 1
+                            adding.append(_)
+                        self.set_calculators(adding, self.calc,
+                                calc_name=self.calc_name, write_training_set=True, cores=self.cores)
+                    self.logfile.write('I added %s more images to the training set \n' % s)
                     self.logfile.flush()
-                    self.set_calculators(adding, self.calc,
-                            calc_name=self.calc_name, write_training_set=True, cores=self.cores)
                 else:
                     self.traj_to_add = 'neb_%s.traj' % (self.iteration - 1)
                     self.logfile.write('Previous NEB Trajectory read from %s \n' % self.traj_to_add)
                     self.logfile.flush()
-                    images_from_prev_neb = read(self.traj_to_add, index=slice(nreadimg, None))
-                    images_to_add = images_from_prev_neb[1:-1]
-                    s = 0
-                    adding = []
-                    for _ in images_to_add:
-                        s += 1
-                        adding.append(_)
-                    self.logfile.write('Added %s more images to the training set \n' % s)
+                    if os.path.isfile('images_from_neb.traj'):
+                        ini_neb_images = Trajectory('images_from_neb.traj', mode='r')
+                        training_file = Trajectory('training.traj', mode='a')
+                        for _ in ini_neb_images:
+                            training_file.write(_)
+                        training_file.close()
+                    else:
+                        images_from_prev_neb = read(self.traj_to_add, index=slice(nreadimg, None))
+                        images_to_add = images_from_prev_neb[1:-1]
+                        s = 0
+                        adding = []
+                        for _ in images_to_add:
+                            s += 1
+                            adding.append(_)
+                        self.set_calculators(adding, self.calc,
+                                calc_name=self.calc_name, write_training_set=True, cores=self.cores)
+                    self.logfile.write('I added %s more images to the training set \n' % s)
                     self.logfile.flush()
 
-                    self.set_calculators(adding, self.calc,
-                            calc_name=self.calc_name, write_training_set=True, cores=self.cores)
 
                 self.training_set = Trajectory('training.traj')
                 self.logfile.write('Length of training set is now %s.\n' % len(self.training_set))
@@ -329,6 +343,7 @@ class accelerate_neb(object):
 
             elif fmax == self.fmax and self.final_fmax is True:
                 print('Line 299', fmax)
+                self.logfile.write('\n')
                 self.logfile.write("Calculation converged!\n")
                 self.logfile.write('     fmax = %s.\n' % fmax)
                 self.logfile.write('tolerance = %s.\n' % float(self.tolerance))
@@ -336,24 +351,32 @@ class accelerate_neb(object):
                 break
 
             elif fmax < self.fmax:
+                self.logfile.write('Iteration %s \n' % self.iteration)
+                self.logfile.flush()
                 print('Line 248', fmax)
                 self.traj_to_add = 'neb_%s.traj' % (self.iteration - 1)
                 self.logfile.write('Trajectory to be added %s \n' % self.traj_to_add)
                 self.logfile.flush()
-                images_from_prev_neb = read(self.traj_to_add, index=slice(nreadimg, None))
-                images_to_add = images_from_prev_neb[1:-1]
-                s = 0
 
-                adding = []
-                for _ in images_to_add:
-                    s += 1
-                    self.logfile.write('Adding %s \n' % s)
-                    adding.append(_)
+                if os.path.isfile('images_from_neb.traj'):
+                    ini_neb_images = Trajectory('images_from_neb.traj', mode='r')
+                    training_file = Trajectory('training.traj', mode='a')
+                    for _ in ini_neb_images:
+                        training_file.write(_)
+                    training_file.close()
+                else:
+                    images_from_prev_neb = read(self.traj_to_add, index=slice(nreadimg, None))
+                    images_to_add = images_from_prev_neb[1:-1]
+                    s = 0
 
-                self.set_calculators(adding, self.calc, calc_write=self.calc_write,
-                        write_training_set=True, cores=self.cores)
-                self.logfile.write('Iteration %s \n' % self.iteration)
-                self.logfile.flush()
+                    adding = []
+                    for _ in images_to_add:
+                        s += 1
+                        self.logfile.write('Adding %s \n' % s)
+                        adding.append(_)
+
+                    self.set_calculators(adding, self.calc, calc_write=self.calc_write,
+                            write_training_set=True, cores=self.cores)
 
                 self.training_set = Trajectory('training.traj')
                 self.logfile.write('Length of training set is now %s.\n' % len(self.training_set))
@@ -382,25 +405,33 @@ class accelerate_neb(object):
 
             else:
                 print('Line 307', fmax)
+                self.logfile.write('Iteration %s \n' % self.iteration)
+                self.logfile.flush()
                 if fmax == self.fmax:
                     self.final_fmax = True
                 self.traj_to_add = 'neb_%s.traj' % (self.iteration - 1)
                 self.logfile.write('Trajectory to be added %s \n' % self.traj_to_add)
                 self.logfile.flush()
-                images_from_prev_neb = read(self.traj_to_add, index=slice(nreadimg, None))
-                images_to_add = images_from_prev_neb[1:-1]
-                s = 0
 
-                adding = []
-                for _ in images_to_add:
-                    s += 1
-                    self.logfile.write('Adding %s \n' % s)
-                    adding.append(_)
+                if os.path.isfile('images_from_neb.traj'):
+                    ini_neb_images = Trajectory('images_from_neb.traj', mode='r')
+                    training_file = Trajectory('training.traj', mode='a')
+                    for _ in ini_neb_images:
+                        training_file.write(_)
+                    training_file.close()
+                else:
+                    images_from_prev_neb = read(self.traj_to_add, index=slice(nreadimg, None))
+                    images_to_add = images_from_prev_neb[1:-1]
+                    s = 0
 
-                self.set_calculators(adding, self.calc, calc_name=self.calc_name,
-                        write_training_set=True, cores=self.cores)
-                self.logfile.write('Iteration %s \n' % self.iteration)
-                self.logfile.flush()
+                    adding = []
+                    for _ in images_to_add:
+                        s += 1
+                        self.logfile.write('Adding %s \n' % s)
+                        adding.append(_)
+
+                    self.set_calculators(adding, self.calc, calc_name=self.calc_name,
+                            write_training_set=True, cores=self.cores)
 
                 self.training_set = Trajectory('training.traj')
                 self.logfile.write('Length of training set is now %s.\n' % len(self.training_set))
@@ -500,7 +531,7 @@ class accelerate_neb(object):
 
             dft_images.append(self.training_set[len(dft_images)])
 
-        test = Trajectory('testingnew.traj', mode='w')
+        test = Trajectory('images_from_neb.traj', mode='w')
 
         for image in dft_images:
             test.write(image)
