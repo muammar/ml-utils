@@ -50,7 +50,8 @@ class accelerate_neb(object):
             fmax=0.05,
             ifmax=None,
             logfile=None,
-            step=None
+            step=None,
+            maxrunsteps=None
             ):
 
         if logfile is None:
@@ -63,6 +64,7 @@ class accelerate_neb(object):
         self.fmax = fmax
         self.step = step
         self.final_fmax = False
+        self.maxrunsteps = maxrunsteps
 
         if ifmax is None:
             self.ifmax = fmax
@@ -186,7 +188,10 @@ class accelerate_neb(object):
                 from ase.optimize import FIRE
                 qn = FIRE(neb, trajectory=self.traj, logfile=logfile)
 
-            qn.run(fmax=fmax)
+            if self.maxrunsteps is None:
+                qn.run(fmax=fmax)
+            else:
+                qn.run(fmax=fmax, steps=self.maxrunsteps)
         clean_dir(logfile=self.logfile)
 
     def accelerate(self):
@@ -344,7 +349,8 @@ class accelerate_neb(object):
                 self.logfile.write("Calculation converged!\n")
                 self.logfile.write('     fmax = %s.\n' % fmax)
                 self.logfile.write('tolerance = %s.\n' % float(self.tolerance))
-                self.logfile.write(' achieved = %s.\n' % float(achieved))
+                self.logfile.write(' Energy error= %s.\n' % float(achieved[0]))
+                self.logfile.write(' Forces error= %s.\n' % float(achieved[1]))
                 break
 
             elif fmax < self.fmax:
