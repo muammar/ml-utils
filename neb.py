@@ -5,6 +5,7 @@ from sklearn.metrics import mean_absolute_error
 import subprocess
 import os.path
 import copy
+import numpy as np
 
 # ASE imports
 from ase.io import read, Trajectory, write
@@ -244,7 +245,8 @@ class accelerate_neb(object):
 
             newcalc = Amp.load('%s.amp' % label)
             achieved = self.cross_validate(ini_neb_images, calc=self.calc, amp_calc=newcalc)
-            self.logfile.write('Metric achieved is %s, tolerance requested is %s. \n' % (float(achieved), self.tolerance))
+            self.logfile.write('Energy and Force metrics achieved are %s and %s, tolerance requested is %s\n'
+                        % (float(achieved[0]), float(achieved[1]), self.tolerance))
             clean_dir(logfile=self.logfile)
             del newcalc
             self.logfile.flush()
@@ -263,7 +265,7 @@ class accelerate_neb(object):
                 self.logfile.write('Step = %s, new ifmax = %s \n' % (step, fmax))
                 self.logfile.flush()
 
-            if achieved > self.tolerance:
+            if (achieved[0] > self.tolerance) or (achieved[1] > self.tolerance):
                 print('Line 182', fmax)
                 if (self.iteration - 1)  == 0:
                     self.logfile.write('INITIAL\n')
@@ -297,7 +299,7 @@ class accelerate_neb(object):
                         self.logfile.write('images_from_neb.traj does not exist\n')
                         self.logfile.write('Aborting...\n')
                         exit()
-                    self.logfile.write('I added %s more images to the training set \n'
+                    self.logfile.write('I added %s more images to the training set\n'
                             % len(ini_neb_images))
                     self.logfile.flush()
 
@@ -325,7 +327,8 @@ class accelerate_neb(object):
                         calc=self.calc,
                         amp_calc=newcalc
                         )
-                self.logfile.write('Metric achieved is %s, tolerance requested is %s \n' % (float(achieved), self.tolerance))
+                self.logfile.write('Energy and Force metrics achieved are %s and %s, tolerance requested is %s\n'
+                        % (float(achieved[0]), float(achieved[1]), self.tolerance))
                 clean_dir(logfile=self.logfile)
                 del newcalc
                 self.logfile.flush()
@@ -389,7 +392,8 @@ class accelerate_neb(object):
                 new_neb_images = read(self.traj, index=slice(nreadimg, None))
                 newcalc = Amp.load('%s.amp' % label)
                 achieved = self.cross_validate(new_neb_images, calc=self.calc, amp_calc=newcalc)
-                self.logfile.write('Metric achieved is %s, tolerance requested is %s \n' % (float(achieved), self.tolerance))
+                self.logfile.write('Energy and Force metrics achieved are %s and %s, tolerance requested is %s \n'
+                        % (float(achieved[0]), float(achieved[1]), self.tolerance))
                 clean_dir(logfile=self.logfile)
                 del newcalc
                 self.logfile.flush()
@@ -398,8 +402,6 @@ class accelerate_neb(object):
                 print('Line 307', fmax)
                 self.logfile.write('Iteration %s \n' % self.iteration)
                 self.logfile.flush()
-                if fmax == self.fmax:
-                    self.final_fmax = True
                 self.traj_to_add = 'neb_%s.traj' % (self.iteration - 1)
                 self.logfile.write('Trajectory to be added %s \n' % self.traj_to_add)
                 self.logfile.flush()
@@ -440,10 +442,15 @@ class accelerate_neb(object):
                 new_neb_images = read(self.traj, index=slice(nreadimg, None))
                 newcalc = Amp.load('%s.amp' % label)
                 achieved = self.cross_validate(new_neb_images, calc=self.calc, amp_calc=newcalc)
-                self.logfile.write('Metric achieved is %s, tolerance requested is %s \n' % (float(achieved), self.tolerance))
+                self.logfile.write('Energy and Force metrics achieved are %s and %s, tolerance requested is %s \n'
+                        % (float(achieved[0]), float(achieved[1]), self.tolerance))
                 clean_dir(logfile=self.logfile)
                 del newcalc
                 self.logfile.flush()
+                if (achieved[0] > self.tolerance) or (achieved[1] > self.tolerance):
+                    self.final_fmax = False
+                else:
+                    self.final_fmax = True
 
     def train(self, trainingset, amp_calc, label=None):
         """This method takes care of training
@@ -492,16 +499,20 @@ class accelerate_neb(object):
         calc_name = amp_calc.__class__.__name__
 
         amp_energies = []
+        amp_forces = []
 
         amp_images = self.set_calculators(neb_images, amp_calc,
                 calc_name=calc_name)
 
         for image in amp_images:
             energy = image.get_potential_energy()
+            forces = image.get_forces()
             amp_energies.append(energy)
+            amp_forces.append(forces.sum(axis=1))
 
         # Computing energies and forces from references
         dft_energies = []
+        dft_forces = []
 
         self.set_calculators(
                 neb_images,
@@ -527,15 +538,16 @@ class accelerate_neb(object):
             energy = dft_images[i].get_potential_energy()
             forces = dft_images[i].get_forces()
             dft_energies.append(energy)
+            dft_forces.append(forces.sum(axis=1))
 
             images_from_neb.write(dft_images[i])
 
         images_from_neb.close()
 
-        metric = mean_absolute_error(dft_energies, amp_energies)
-        #self.logfile('The metric is %s. \n ' % metric)
-        #self.logfile.flush()
-        return metric
+        e_metric = mean_absolute_error(dft_energies, amp_energies)
+        f_metric = mean_absolute_error(dft_forces, amp_forces)
+
+        return e_metric, f_metric
 
     def run_gpaw(self, images):
         """Method for running gpaw weird parallelization
