@@ -338,6 +338,9 @@ class accelerate_neb(object):
                 del newcalc
                 self.logfile.flush()
 
+                if (achieved[0] < self.tolerance) and (achieved[1] < self.tolerance):
+                    self.final_fmax = True
+
             elif self.iteration == self.maxiter:
                 print('Line 294', fmax)
                 self.logfile.write('Maximum number of iterations reached')
@@ -404,6 +407,9 @@ class accelerate_neb(object):
                 del newcalc
                 self.logfile.flush()
 
+                if (achieved[0] < self.tolerance) and (achieved[1] < self.tolerance):
+                    self.final_fmax = True
+
             else:
                 print('Line 307', fmax)
                 self.logfile.write('Iteration %s \n' % self.iteration)
@@ -453,9 +459,8 @@ class accelerate_neb(object):
                 clean_dir(logfile=self.logfile)
                 del newcalc
                 self.logfile.flush()
-                if (achieved[0] > self.tolerance) or (achieved[1] > self.tolerance):
-                    self.final_fmax = False
-                else:
+
+                if (achieved[0] < self.tolerance) and (achieved[1] < self.tolerance):
                     self.final_fmax = True
 
     def train(self, trainingset, amp_calc, label=None):
