@@ -71,7 +71,10 @@ class accelerate_neb(object):
         else:
             self.ifmax = ifmax
 
-        self.logfile = open(logfile, 'w')
+        if os.path.isfile(logfile):
+            self.logfile = open(logfile, 'a')
+        else:
+            self.logfile = open(logfile, 'w')
 
         if initial != None and final != None:
             self.initial = read(initial)
@@ -111,7 +114,10 @@ class accelerate_neb(object):
         self.calc = calc
         self.cores = cores
         self.neb_optimizer = neb_optimizer
-        self.logfile.write('NEB acceleration initialized\n')
+        if restart is None:
+            self.logfile.write('NEB acceleration initialized\n')
+        else:
+            self.logfile.write('NEB acceleration restarted\n')
 
         if self.cores != None:
             self.logfile.write('Number of cores for GPAW calculator is %s \n' % self.cores)
@@ -130,7 +136,7 @@ class accelerate_neb(object):
         self.nreadimg = (self.intermediates + 2)    # This is the total number of images in NEB
 
         if self.initialized is False:
-            images = [ self.initial ]
+            images = [self.initial]
             for intermediate in range(self.intermediates):
                 image = self.initial.copy()
                 image.set_calculator(self.calc)
@@ -149,7 +155,33 @@ class accelerate_neb(object):
             self.initialized = True
 
         elif self.initialized is True:
+            nreadimg = -(self.intermediates + 2)
             self.neb_images = read('training.traj', index=slice(0, self.nreadimg))
+
+            # We check the existance of previous files and we restart the
+            # calculations. #FIXME this is not probably finished for all cases.
+
+            nebfile, digit = check_files()
+
+            if nebfile is not False:
+                self.training_set = Trajectory('training.traj')
+                self.iteration = int(digit)
+                self.logfile.write('Restarting at iteration %s \n' % self.iteration)
+                self.logfile.write('Using NEB trajectory %s \n' % nebfile)
+                self.logfile.flush()
+                self.trained = True
+                new_neb_images = read(nebfile, index=slice(nreadimg, None))
+                newcalc = Amp.load('%s.amp' % digit)
+                self.achieved = self.cross_validate(
+                        new_neb_images,
+                        calc=self.calc,
+                        amp_calc=newcalc
+                        )
+                self.logfile.write('Energy and Force metrics achieved are %s and %s, tolerance requested is %s\n'
+                        % (float(self.achieved[0]), float(self.achieved[1]), self.tolerance))
+                clean_dir(logfile=self.logfile)
+                del newcalc
+                self.logfile.flush()
 
     def run_neb(self, images, interpolate=False, fmax=None):
         """This method runs NEB calculations
@@ -249,9 +281,9 @@ class accelerate_neb(object):
             self.logfile.flush()
 
             newcalc = Amp.load('%s.amp' % label)
-            achieved = self.cross_validate(ini_neb_images, calc=self.calc, amp_calc=newcalc)
+            self.achieved = self.cross_validate(ini_neb_images, calc=self.calc, amp_calc=newcalc)
             self.logfile.write('Energy and Force metrics achieved are %s and %s, tolerance requested is %s\n'
-                        % (float(achieved[0]), float(achieved[1]), self.tolerance))
+                        % (float(self.achieved[0]), float(self.achieved[1]), self.tolerance))
             clean_dir(logfile=self.logfile)
             del newcalc
             self.logfile.flush()
@@ -270,7 +302,7 @@ class accelerate_neb(object):
                 self.logfile.write('Step = %s, new ifmax = %s \n' % (step, fmax))
                 self.logfile.flush()
 
-            if (achieved[0] > self.tolerance) or (achieved[1] > self.tolerance):
+            if (self.achieved[0] > self.tolerance) or (self.achieved[1] > self.tolerance):
                 print('Line 182', fmax)
                 if (self.iteration - 1)  == 0:
                     self.logfile.write('INITIAL\n')
@@ -327,18 +359,18 @@ class accelerate_neb(object):
                 del newcalc
                 new_neb_images = read(self.traj, index=slice(nreadimg, None))
                 newcalc = Amp.load('%s.amp' % label)
-                achieved = self.cross_validate(
+                self.achieved = self.cross_validate(
                         new_neb_images,
                         calc=self.calc,
                         amp_calc=newcalc
                         )
                 self.logfile.write('Energy and Force metrics achieved are %s and %s, tolerance requested is %s\n'
-                        % (float(achieved[0]), float(achieved[1]), self.tolerance))
+                        % (float(self.achieved[0]), float(self.achieved[1]), self.tolerance))
                 clean_dir(logfile=self.logfile)
                 del newcalc
                 self.logfile.flush()
 
-                if (achieved[0] < self.tolerance) and (achieved[1] < self.tolerance):
+                if (self.achieved[0] < self.tolerance) and (self.achieved[1] < self.tolerance):
                     self.final_fmax = True
 
             elif self.iteration == self.maxiter:
@@ -352,8 +384,8 @@ class accelerate_neb(object):
                 self.logfile.write("Calculation converged!\n")
                 self.logfile.write('     fmax = %s.\n' % fmax)
                 self.logfile.write('tolerance = %s.\n' % float(self.tolerance))
-                self.logfile.write(' Energy error= %s.\n' % float(achieved[0]))
-                self.logfile.write(' Forces error= %s.\n' % float(achieved[1]))
+                self.logfile.write(' Energy error= %s.\n' % float(self.achieved[0]))
+                self.logfile.write(' Forces error= %s.\n' % float(self.achieved[1]))
                 break
 
             elif fmax < self.fmax:
@@ -400,14 +432,14 @@ class accelerate_neb(object):
                 del newcalc
                 new_neb_images = read(self.traj, index=slice(nreadimg, None))
                 newcalc = Amp.load('%s.amp' % label)
-                achieved = self.cross_validate(new_neb_images, calc=self.calc, amp_calc=newcalc)
+                self.achieved = self.cross_validate(new_neb_images, calc=self.calc, amp_calc=newcalc)
                 self.logfile.write('Energy and Force metrics achieved are %s and %s, tolerance requested is %s \n'
-                        % (float(achieved[0]), float(achieved[1]), self.tolerance))
+                        % (float(self.achieved[0]), float(self.achieved[1]), self.tolerance))
                 clean_dir(logfile=self.logfile)
                 del newcalc
                 self.logfile.flush()
 
-                if (achieved[0] < self.tolerance) and (achieved[1] < self.tolerance):
+                if (self.achieved[0] < self.tolerance) and (self.achieved[1] < self.tolerance):
                     self.final_fmax = True
 
             else:
@@ -453,14 +485,14 @@ class accelerate_neb(object):
                 del newcalc
                 new_neb_images = read(self.traj, index=slice(nreadimg, None))
                 newcalc = Amp.load('%s.amp' % label)
-                achieved = self.cross_validate(new_neb_images, calc=self.calc, amp_calc=newcalc)
+                self.achieved = self.cross_validate(new_neb_images, calc=self.calc, amp_calc=newcalc)
                 self.logfile.write('Energy and Force metrics achieved are %s and %s, tolerance requested is %s \n'
-                        % (float(achieved[0]), float(achieved[1]), self.tolerance))
+                        % (float(self.achieved[0]), float(self.achieved[1]), self.tolerance))
                 clean_dir(logfile=self.logfile)
                 del newcalc
                 self.logfile.flush()
 
-                if (achieved[0] < self.tolerance) and (achieved[1] < self.tolerance):
+                if (self.achieved[0] < self.tolerance) and (self.achieved[1] < self.tolerance):
                     self.final_fmax = True
 
     def train(self, trainingset, amp_calc, label=None):
@@ -696,3 +728,23 @@ for image in input:
 output.close()
 """
     gpaw_file.write(header2)
+
+def check_files():
+    """ Check files
+    """
+    import glob
+    import os
+
+    logfiles = sorted(glob.glob('*.txt'))
+
+    if 'amp-log.txt' in logfiles:
+        logfiles.remove('amp-log.txt')
+
+    digit = logfiles[-1][0]
+
+    nebfile = 'neb_' + digit + '.traj'
+
+    if os.path.isfile(nebfile):
+        return nebfile, digit
+    else:
+        return False, digit
