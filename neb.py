@@ -740,11 +740,12 @@ def check_files():
     if 'amp-log.txt' in logfiles:
         logfiles.remove('amp-log.txt')
 
-    digit = logfiles[-1][0]
+    if len(logfiles) is not 0:
+        digit = logfiles[-1][0]
 
-    nebfile = 'neb_' + digit + '.traj'
+        nebfile = 'neb_' + digit + '.traj'
 
-    if os.path.isfile(nebfile):
-        return nebfile, digit
+        if os.path.isfile(nebfile):
+            return nebfile, digit
     else:
-        return False, digit
+        return False, None
