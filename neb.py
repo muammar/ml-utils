@@ -163,7 +163,7 @@ class accelerate_neb(object):
             # We check the existance of previous files and we restart the
             # calculations. #FIXME this is not probably finished for all cases.
 
-            nebfile, digit = check_files()
+            nebfile, self.digit = check_files()
 
 
             if nebfile is not False:
@@ -171,13 +171,13 @@ class accelerate_neb(object):
                 This case only requires crossvalidation
                 """
                 self.training_set = Trajectory('training.traj')
-                self.iteration = int(digit)
+                self.iteration = int(self.digit)
                 self.logfile.write('Restarting at iteration %s \n' % self.iteration)
                 self.logfile.write('Using NEB trajectory %s \n' % nebfile)
                 self.logfile.flush()
                 self.trained = True
                 new_neb_images = read(nebfile, index=slice(nreadimg, None))
-                newcalc = Amp.load('%s.amp' % digit)
+                newcalc = Amp.load('%s.amp' % self.digit)
                 self.achieved = self.cross_validate(
                         new_neb_images,
                         calc=self.calc,
@@ -191,21 +191,21 @@ class accelerate_neb(object):
 
             elif nebfile is False:
                 self.training_set = Trajectory('training.traj')
-                self.iteration = int(digit)
+                self.iteration = int(self.digit)
                 self.logfile.write('Restarting at iteration %s \n' % self.iteration)
-                self.logfile.write('Using calc %s.amp \n' % digit)
+                self.logfile.write('Using calc %s.amp \n' % self.digit)
                 self.logfile.flush()
                 self.trained = True
                 self.neb_images = read('training.traj', index=slice(0, self.nreadimg))
                 self.logfile.write('Starting ML-NEB calculation... Go, and grab a cup of coffee :) \n')
                 self.logfile.flush()
-                newcalc = Amp.load('%s.amp' % digit)
+                newcalc = Amp.load('%s.amp' % self.digit)
                 calc_name = newcalc.__class__.__name__
 
                 if self.previous_nebfile is False:
                     self.neb_images = read('training.traj', index=slice(0, self.nreadimg))
                 else:
-                    nebfile = 'neb_' + (digit -1) + '.traj'
+                    nebfile = 'neb_%s.traj' % (self.digit - 1)
                     self.neb_images = read(nebfile, index=slice(0, self.nreadimg))
                 images = self.set_calculators(
                         self.neb_images,
@@ -313,11 +313,7 @@ class accelerate_neb(object):
             newcalc = Amp.load('%s.amp' % label)
             calc_name = newcalc.__class__.__name__
 
-            if self.previous_nebfile is False:
-                self.neb_images = read('training.traj', index=slice(0, self.nreadimg))
-            else:
-                nebfile = 'neb_' + (digit -1) + '.traj'
-                self.neb_images = read(nebfile, index=slice(0, self.nreadimg))
+            self.neb_images = read('training.traj', index=slice(0, self.nreadimg))
 
             images = self.set_calculators(
                     self.neb_images,
@@ -348,6 +344,7 @@ class accelerate_neb(object):
 
         while True:
             self.iteration += 1
+            self.digit = self.iteration
 
             self.logfile.write('Iteration %s \n' % self.iteration)
             self.logfile.flush()
@@ -411,7 +408,7 @@ class accelerate_neb(object):
                 if self.previous_nebfile is False:
                     self.neb_images = read('training.traj', index=slice(0, self.nreadimg))
                 else:
-                    nebfile = 'neb_' + (digit -1) + '.traj'
+                    nebfile = 'neb_%s.traj' % (self.digit - 1)
                     self.neb_images = read(nebfile, index=slice(0, self.nreadimg))
 
                 images = self.set_calculators(self.neb_images, newcalc,
@@ -488,7 +485,7 @@ class accelerate_neb(object):
                 if self.previous_nebfile is False:
                     self.neb_images = read('training.traj', index=slice(0, self.nreadimg))
                 else:
-                    nebfile = 'neb_' + (digit -1) + '.traj'
+                    nebfile = 'neb_%s.traj' % (self.digit - 1)
                     self.neb_images = read(nebfile, index=slice(0, self.nreadimg))
 
                 images = self.set_calculators(self.neb_images, newcalc,
@@ -549,7 +546,7 @@ class accelerate_neb(object):
                 if self.previous_nebfile is False:
                     self.neb_images = read('training.traj', index=slice(0, self.nreadimg))
                 else:
-                    nebfile = 'neb_' + (digit -1) + '.traj'
+                    nebfile = 'neb_%s.traj' % (self.digit - 1)
                     self.neb_images = read(nebfile, index=slice(0, self.nreadimg))
 
                 images = self.set_calculators(self.neb_images, newcalc,
@@ -821,7 +818,7 @@ def check_files():
     if len(logfiles) is not 0:
         digit = logfiles[-1][0]
 
-        nebfile = 'neb_' + digit + '.traj'
+        nebfile = 'neb_%s.traj' % digit
 
         if os.path.isfile(nebfile):
             return nebfile, digit
