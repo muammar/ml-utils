@@ -51,7 +51,8 @@ class accelerate_neb(object):
             ifmax=None,
             logfile=None,
             step=None,
-            maxrunsteps=None
+            maxrunsteps=None,
+            previous_nebfile=False
             ):
 
         if logfile is None:
@@ -65,6 +66,7 @@ class accelerate_neb(object):
         self.step = step
         self.final_fmax = False
         self.maxrunsteps = maxrunsteps
+        self.previous_nebfile = previous_nebfile
 
         if ifmax is None:
             self.ifmax = fmax
@@ -199,7 +201,12 @@ class accelerate_neb(object):
                 self.logfile.flush()
                 newcalc = Amp.load('%s.amp' % digit)
                 calc_name = newcalc.__class__.__name__
-                self.neb_images = read('training.traj', index=slice(0, self.nreadimg))
+
+                if self.previous_nebfile is False:
+                    self.neb_images = read('training.traj', index=slice(0, self.nreadimg))
+                else:
+                    nebfile = 'neb_' + (digit -1) + '.traj'
+                    self.neb_images = read(nebfile, index=slice(0, self.nreadimg))
                 images = self.set_calculators(
                         self.neb_images,
                         newcalc,
@@ -305,7 +312,13 @@ class accelerate_neb(object):
             self.logfile.flush()
             newcalc = Amp.load('%s.amp' % label)
             calc_name = newcalc.__class__.__name__
-            self.neb_images = read('training.traj', index=slice(0, self.nreadimg))
+
+            if self.previous_nebfile is False:
+                self.neb_images = read('training.traj', index=slice(0, self.nreadimg))
+            else:
+                nebfile = 'neb_' + (digit -1) + '.traj'
+                self.neb_images = read(nebfile, index=slice(0, self.nreadimg))
+
             images = self.set_calculators(
                     self.neb_images,
                     newcalc,
@@ -394,7 +407,13 @@ class accelerate_neb(object):
                 clean_train_data()
                 newcalc = Amp.load('%s.amp' % label)
                 calc_name = newcalc.__class__.__name__
-                self.neb_images = read('training.traj', index=slice(0, self.nreadimg))
+
+                if self.previous_nebfile is False:
+                    self.neb_images = read('training.traj', index=slice(0, self.nreadimg))
+                else:
+                    nebfile = 'neb_' + (digit -1) + '.traj'
+                    self.neb_images = read(nebfile, index=slice(0, self.nreadimg))
+
                 images = self.set_calculators(self.neb_images, newcalc,
                         calc_name=calc_name, logfile=self.logfile, cores=self.cores)
 
@@ -465,7 +484,13 @@ class accelerate_neb(object):
                 del amp_calc
                 clean_train_data()
                 newcalc = Amp.load('%s.amp' % label)
-                self.neb_images = read('training.traj', index=slice(0, self.nreadimg))
+
+                if self.previous_nebfile is False:
+                    self.neb_images = read('training.traj', index=slice(0, self.nreadimg))
+                else:
+                    nebfile = 'neb_' + (digit -1) + '.traj'
+                    self.neb_images = read(nebfile, index=slice(0, self.nreadimg))
+
                 images = self.set_calculators(self.neb_images, newcalc,
                         calc_write=self.calc_write, logfile=self.logfile, cores=self.cores)
 
@@ -520,7 +545,13 @@ class accelerate_neb(object):
                 clean_train_data()
                 newcalc = Amp.load('%s.amp' % label)
                 calc_name = newcalc.__class__.__name__
-                self.neb_images = read('training.traj', index=slice(0, self.nreadimg))
+
+                if self.previous_nebfile is False:
+                    self.neb_images = read('training.traj', index=slice(0, self.nreadimg))
+                else:
+                    nebfile = 'neb_' + (digit -1) + '.traj'
+                    self.neb_images = read(nebfile, index=slice(0, self.nreadimg))
+
                 images = self.set_calculators(self.neb_images, newcalc,
                         calc_name=calc_name, logfile=self.logfile, cores=self.cores)
 
