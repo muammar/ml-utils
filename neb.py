@@ -163,7 +163,11 @@ class accelerate_neb(object):
 
             nebfile, digit = check_files()
 
+
             if nebfile is not False:
+                """
+                This case only requires crossvalidation
+                """
                 self.training_set = Trajectory('training.traj')
                 self.iteration = int(digit)
                 self.logfile.write('Restarting at iteration %s \n' % self.iteration)
@@ -182,6 +186,46 @@ class accelerate_neb(object):
                 clean_dir(logfile=self.logfile)
                 del newcalc
                 self.logfile.flush()
+
+            elif nebfile is False:
+                self.training_set = Trajectory('training.traj')
+                self.iteration = int(digit)
+                self.logfile.write('Restarting at iteration %s \n' % self.iteration)
+                self.logfile.write('Using calc %s.amp \n' % digit)
+                self.logfile.flush()
+                self.trained = True
+                self.neb_images = read('training.traj', index=slice(0, self.nreadimg))
+                self.logfile.write('Starting ML-NEB calculation... Go, and grab a cup of coffee :) \n')
+                self.logfile.flush()
+                newcalc = Amp.load('%s.amp' % digit)
+                calc_name = newcalc.__class__.__name__
+                self.neb_images = read('training.traj', index=slice(0, self.nreadimg))
+                images = self.set_calculators(
+                        self.neb_images,
+                        newcalc,
+                        calc_name=calc_name,
+                        logfile=self.logfile,
+                        cores=self.cores
+                        )
+                self.run_neb(self.neb_images, fmax=self.fmax)
+                del newcalc
+                clean_dir(logfile=self.logfile)
+                self.logfile.write('ML-NEB calculation finished... \o/ \n')
+
+                # We now read the last images from the NEB: initial, intermediate,
+                # and final states.
+                ini_neb_images = read(self.traj, index=slice(nreadimg, None))
+                self.logfile.write('New guessed ML-MEP was read from %s \n' % self.traj)
+                self.logfile.flush()
+
+                newcalc = Amp.load('%s.amp' % label)
+                self.achieved = self.cross_validate(ini_neb_images, calc=self.calc, amp_calc=newcalc)
+                self.logfile.write('Energy and Force metrics achieved are %s and %s, tolerance requested is %s\n'
+                            % (float(self.achieved[0]), float(self.achieved[1]), self.tolerance))
+                clean_dir(logfile=self.logfile)
+                del newcalc
+                self.logfile.flush()
+                self.training_set.close()
 
     def run_neb(self, images, interpolate=False, fmax=None):
         """This method runs NEB calculations
@@ -740,6 +784,9 @@ def check_files():
     if 'amp-log.txt' in logfiles:
         logfiles.remove('amp-log.txt')
 
+    if 'out.txt' in logfiles:
+        logfiles.remove('out.txt')
+
     if len(logfiles) is not 0:
         digit = logfiles[-1][0]
 
@@ -747,5 +794,7 @@ def check_files():
 
         if os.path.isfile(nebfile):
             return nebfile, digit
+        else:
+            return False, digit
     else:
         return False, None
