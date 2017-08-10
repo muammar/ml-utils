@@ -433,7 +433,8 @@ class accelerate_neb(object):
                 del newcalc
                 self.logfile.flush()
 
-                if (self.achieved[0] < self.tolerance) and (self.achieved[1] < self.tolerance):
+                if (self.achieved[0] < self.tolerance) and (self.achieved[1]
+                        < self.tolerance) and (fmax <= self.fmax):
                     self.final_fmax = True
 
             elif self.iteration == self.maxiter:
@@ -508,7 +509,8 @@ class accelerate_neb(object):
                 del newcalc
                 self.logfile.flush()
 
-                if (self.achieved[0] < self.tolerance) and (self.achieved[1] < self.tolerance):
+                if (self.achieved[0] < self.tolerance) and (self.achieved[1]
+                        < self.tolerance) and (fmax <= self.fmax):
                     self.final_fmax = True
 
             else:
@@ -568,7 +570,8 @@ class accelerate_neb(object):
                 del newcalc
                 self.logfile.flush()
 
-                if (self.achieved[0] < self.tolerance) and (self.achieved[1] < self.tolerance):
+                if (self.achieved[0] < self.tolerance) and (self.achieved[1]
+                        < self.tolerance) and (fmax <= self.fmax):
                     self.final_fmax = True
 
     def train(self, trainingset, amp_calc, label=None):
