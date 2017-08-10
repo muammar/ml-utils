@@ -206,7 +206,7 @@ class accelerate_neb(object):
                     self.neb_images = read('training.traj', index=slice(0, self.nreadimg))
                 else:
                     nebfile = 'neb_%s.traj' % (self.digit - 1)
-                    self.neb_images = read(nebfile, index=slice(0, self.nreadimg))
+                    self.neb_images = read(nebfile, index=slice(self.nreadimg, None))
                 images = self.set_calculators(
                         self.neb_images,
                         newcalc,
@@ -409,7 +409,7 @@ class accelerate_neb(object):
                     self.neb_images = read('training.traj', index=slice(0, self.nreadimg))
                 else:
                     nebfile = 'neb_%s.traj' % (self.digit - 1)
-                    self.neb_images = read(nebfile, index=slice(0, self.nreadimg))
+                    self.neb_images = read(nebfile, index=slice(self.nreadimg, None))
 
                 images = self.set_calculators(self.neb_images, newcalc,
                         calc_name=calc_name, logfile=self.logfile, cores=self.cores)
@@ -486,7 +486,7 @@ class accelerate_neb(object):
                     self.neb_images = read('training.traj', index=slice(0, self.nreadimg))
                 else:
                     nebfile = 'neb_%s.traj' % (self.digit - 1)
-                    self.neb_images = read(nebfile, index=slice(0, self.nreadimg))
+                    self.neb_images = read(nebfile, index=slice(self.nreadimg, None))
 
                 images = self.set_calculators(self.neb_images, newcalc,
                         calc_write=self.calc_write, logfile=self.logfile, cores=self.cores)
@@ -547,7 +547,7 @@ class accelerate_neb(object):
                     self.neb_images = read('training.traj', index=slice(0, self.nreadimg))
                 else:
                     nebfile = 'neb_%s.traj' % (self.digit - 1)
-                    self.neb_images = read(nebfile, index=slice(0, self.nreadimg))
+                    self.neb_images = read(nebfile, index=slice(self.nreadimg, None))
 
                 images = self.set_calculators(self.neb_images, newcalc,
                         calc_name=calc_name, logfile=self.logfile, cores=self.cores)
