@@ -5,6 +5,7 @@ from sklearn.metrics import mean_absolute_error
 import subprocess
 import os.path
 import copy
+import numpy as np
 
 # ASE imports
 from ase.io import read, Trajectory
@@ -35,24 +36,26 @@ class accelerate_neb(object):
         exact.
     fmax : float
         The maximum force allowed by the optimizer.
+    ifmax : float
+        Initial fmax. Useful when your starting training set is too poor and
+        then you ask for a NEB with a larger fmax that can be easily obtained.
+        In this way training set improves faster but the whole process is
+        slower (you do more DFT calculations).
     step : float
         Useful to help the convergence. This number divides ifmax.
     logfile : str
         Path to create logfile.
+    metric : str
+        By default the metric is fmax as computed in ase/neb.py. Other
+        possibilities are MAE.
+    maxrunsteps : int
+        Maximum number of times that .run will execute a band optimization.
+    previous_nebfile : bool
+        Whether or not we will restart the process from a previous iteration.
     """
-    def __init__(
-            self,
-            initial=None,
-            final=None,
-            tolerance=0.01,
-            maxiter=200,
-            fmax=0.05,
-            ifmax=None,
-            logfile=None,
-            step=None,
-            maxrunsteps=None,
-            previous_nebfile=False
-            ):
+    def __init__(self, initial=None, final=None, tolerance=0.01, maxiter=200,
+                 fmax=0.05, ifmax=None, logfile=None, step=None,
+                 maxrunsteps=None, previous_nebfile=False, metric='fmax'):
 
         if logfile is None:
             logfile = 'acceleration.log'
@@ -66,6 +69,7 @@ class accelerate_neb(object):
         self.final_fmax = False
         self.maxrunsteps = maxrunsteps
         self.previous_nebfile = previous_nebfile
+        self.metric = metric
 
         if ifmax is None:
             self.ifmax = fmax
@@ -83,16 +87,9 @@ class accelerate_neb(object):
         else:
             self.logfile.write('You need to an initial and final states.')
 
-    def initialize(
-            self,
-            calc=None,
-            amp_calc=None,
-            climb=False,
-            intermediates=None,
-            restart=False,
-            cores=None,
-            neb_optimizer='BFGS'
-            ):
+    def initialize(self, calc=None, amp_calc=None, climb=False,
+                   intermediates=None, restart=False, cores=None,
+                   neb_optimizer='BFGS'):
         """Method to initialize the acceleration of NEB
 
         Parameters
@@ -187,11 +184,6 @@ class accelerate_neb(object):
                         calc=self.calc,
                         amp_calc=newcalc
                         )
-                self.logfile.write('Energy and Force metrics achieved are %s '
-                                   'and %s, tolerance requested is %s\n'
-                                   % (float(self.achieved[0]),
-                                      float(self.achieved[1]),
-                                      self.tolerance))
                 clean_dir(logfile=self.logfile)
                 del newcalc
                 self.logfile.flush()
@@ -245,11 +237,6 @@ class accelerate_neb(object):
                     self.achieved = self.cross_validate(ini_neb_images,
                                                         calc=self.calc,
                                                         amp_calc=newcalc)
-                    self.logfile.write('Energy and Force metrics achieved are '
-                                       '%s and %s, tolerance requested is %s\n'
-                                       % (float(self.achieved[0]),
-                                          float(self.achieved[1]),
-                                          self.tolerance))
                     clean_dir(logfile=self.logfile)
                     del newcalc
                     self.logfile.flush()
@@ -366,11 +353,6 @@ class accelerate_neb(object):
             self.achieved = self.cross_validate(ini_neb_images,
                                                 calc=self.calc,
                                                 amp_calc=newcalc)
-            self.logfile.write('Energy and Force metrics achieved are %s and '
-                               '%s, tolerance requested is %s\n'
-                               % (float(self.achieved[0]),
-                                  float(self.achieved[1]),
-                                  self.tolerance))
             clean_dir(logfile=self.logfile)
             del newcalc
             self.logfile.flush()
@@ -471,10 +453,6 @@ class accelerate_neb(object):
                         calc=self.calc,
                         amp_calc=newcalc
                         )
-                self.logfile.write('Energy and Force metrics achieved are %s '
-                                   'and %s, tolerance requested is %s\n'
-                                   % (float(self.achieved[0]),
-                                      float(self.achieved[1]), self.tolerance))
                 clean_dir(logfile=self.logfile)
                 del newcalc
                 self.logfile.flush()
@@ -635,11 +613,6 @@ class accelerate_neb(object):
                 self.achieved = self.cross_validate(new_neb_images,
                                                     calc=self.calc,
                                                     amp_calc=newcalc)
-                self.logfile.write('Energy and Force metrics achieved are %s '
-                                   'and %s, tolerance requested is %s \n'
-                                   % (float(self.achieved[0]),
-                                      float(self.achieved[1]),
-                                      self.tolerance))
                 clean_dir(logfile=self.logfile)
                 del newcalc
                 self.logfile.flush()
@@ -673,7 +646,8 @@ class accelerate_neb(object):
         except:
             raise
 
-    def cross_validate(self, neb_images, calc=None, amp_calc=None):
+    def cross_validate(self, neb_images, calc=None, amp_calc=None,
+                       metric='fmax'):
         """Cross validate
 
         This method will verify whether or not a metric to measure error
@@ -741,10 +715,24 @@ class accelerate_neb(object):
 
         images_from_neb.close()
 
-        e_metric = mean_absolute_error(dft_energies, amp_energies)
-        f_metric = mean_absolute_error(dft_forces, amp_forces)
+        if metric is 'fmax':
+            f_metric = get_fmax(dft_images)
+            e_metric = f_metric
+            self.logfile.write('fmax achieved is %s, tolerance requested is '
+                               '%s\n' % (float(f_metric), self.tolerance))
+            return e_metric, f_metric
 
-        return e_metric, f_metric
+        elif metric is not 'fmax':
+
+            e_metric = mean_absolute_error(dft_energies, amp_energies)
+            f_metric = mean_absolute_error(dft_forces, amp_forces)
+
+            self.logfile.write('Energy and Force metrics achieved are %s '
+                               'and %s, tolerance requested is %s\n'
+                               % (float(self.achieved[0]),
+                                  float(self.achieved[1]),
+                                  self.tolerance))
+            return e_metric, f_metric
 
     def run_gpaw(self, images):
         """Method for running gpaw weird parallelization
@@ -833,6 +821,13 @@ class accelerate_neb(object):
         if write_training_set is True and calc_name != 'GPAW':
             training_file.close()
         return images
+
+
+def get_fmax(images, **kwargs):
+    """Returns fmax, as used by optimizers with NEB."""
+    neb = NEB(images, **kwargs)
+    forces = neb.get_forces()
+    return np.sqrt((forces**2).sum(axis=1).max())
 
 
 def clean_dir(logfile=None):
