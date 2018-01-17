@@ -29,15 +29,20 @@ dft_calc = EMT()
 neb = accelerate_neb(
         initial=initial,
         final=final,
-        tolerance=0.00019,
+        tolerance=0.021,
         maxiter=200,
         fmax=0.05,
-        ifmax=None)
+        ifmax=1.35,
+        step=3.,
+        maxrunsteps=50,
+        metric='fmax'
+        )
 
 neb.initialize(
         calc=dft_calc,
         amp_calc=amp_calc,
         climb=False,
-        intermediates=5
+        intermediates=5,
         )
+
 neb.accelerate()
