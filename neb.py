@@ -179,11 +179,9 @@ class accelerate_neb(object):
                 self.trained = True
                 new_neb_images = read(nebfile, index=slice(nreadimg, None))
                 newcalc = Amp.load('%s.amp' % self.iteration)
-                self.achieved = self.cross_validate(
-                        new_neb_images,
-                        calc=self.calc,
-                        amp_calc=newcalc
-                        )
+                self.achieved = self.cross_validate(new_neb_images,
+                                                    calc=self.calc,
+                                                    amp_calc=newcalc)
                 clean_dir(logfile=self.logfile)
                 del newcalc
                 self.logfile.flush()
@@ -260,13 +258,11 @@ class accelerate_neb(object):
         if interpolate is True:
             neb.interpolate()
             calc = self.calc
-            self.set_calculators(
-                    neb.images,
-                    calc,
-                    calc_name=self.calc_name,
-                    write_training_set=True,
-                    cores=self.cores
-                    )
+            self.set_calculators(neb.images,
+                                 calc,
+                                 calc_name=self.calc_name,
+                                 write_training_set=True,
+                                 cores=self.cores)
             del calc
             return neb.images
 
@@ -337,6 +333,7 @@ class accelerate_neb(object):
                     logfile=self.logfile,
                     cores=self.cores
                     )
+
             self.run_neb(self.neb_images, fmax=fmax)
             del newcalc
             clean_dir(logfile=self.logfile)
