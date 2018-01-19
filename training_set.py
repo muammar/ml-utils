@@ -5,10 +5,17 @@ import random
 
 
 def split(images, trainingname='trainingimages.traj',
-        testname='testimages.traj', shuffle=True, test_set=20):
-    """docstring for parition_training_set
+          testname='testimages.traj', shuffle=True, test_set=20):
+    """Split data set in training and test sets.
 
-
+    images : str
+        Path to images to be split.
+    trainingname : str
+        Name of the training set trajectory file. By default is
+        trainingimages.traj
+    testname : str
+        Name of the test set trajectory file. By default is
+        testimages.traj
     test_set : integer
         Porcentage of training data that will be used as test set.
     """
