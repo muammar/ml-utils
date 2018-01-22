@@ -43,12 +43,13 @@ def split(images, trainingname='trainingimages.traj',
     log.write(str(trainingimages))
     log.write('\n')
 
-    testimages =[]
-    test = Trajectory(testname, mode='w')
-    for i in _images[-test_length:-1]:
-        testimages.append(i)
-        test.write(images[i])
+    if test_set > 0:
+        testimages =[]
+        test = Trajectory(testname, mode='w')
+        for i in _images[-test_length:-1]:
+            testimages.append(i)
+            test.write(images[i])
 
-    log.write(str(testimages))
+        log.write(str(testimages))
     log.close()
     return
