@@ -18,6 +18,8 @@ def split(images, trainingname='trainingimages.traj',
         testimages.traj
     test_set : integer
         Porcentage of training data that will be used as test set.
+    shuffle : bool
+        Whether or not the data will be randomized.
     """
     images = Trajectory(images)
 
