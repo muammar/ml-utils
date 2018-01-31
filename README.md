@@ -11,7 +11,7 @@ I can do the following things:
 * Split trajectory files. 
 * Force integration. 
 
-### OK amp-utils,, How do I get set up? ###
+### OK amp-utils, How do I get set up? ###
 
 You need to install the following software:
 
@@ -19,8 +19,16 @@ You need to install the following software:
 - ASE.
 - Scikit-learn.
 
+Clone this repo: 
+
+
+```
+git clone https://github.com/muammar/amp-utils
+
+``` 
+
 Instead of messing up your `.bashrc` or `.zshrc`, you can add the following in your
-script to import this class:
+python scripts to import this class:
 
 ```
 import sys
@@ -32,3 +40,6 @@ sys.path.append('PATH/TO/amp-utils/')
 If you use these scripts, cite this repo :)
 
 M. El Khatib, "amp-utils: atomistic machine learning utilities". DOI:
+
+If you see an error, please [report it here ](https://github.com/muammar/amp-utils/issues). 
+Pull requests are more than welcome. 
