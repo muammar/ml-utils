@@ -1,4 +1,4 @@
-# amp-utils#
+# amp-utils
 
 This repository contains some scripts that might be useful for some
 machine-learning tasks in chemistry.
@@ -26,6 +26,6 @@ sys.path.append('PATH/TO/amp-utils/')
 
 ### Be nice
 
-If you use these scripts, cite it :)
+If you use these scripts, cite this repo :)
 
 M. El Khatib, "amp-utils: atomistic machine learning utilities". DOI:
