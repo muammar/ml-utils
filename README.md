@@ -1,14 +1,17 @@
-# amp-utils#
+# amp-utils
 
 This repository contains some scripts that might be useful for some
 machine-learning tasks in chemistry.
 
-### What is this repository for? ###
+### OK amp-utils, what can you do? ###
 
-* This repository contains a python class that accelerates nudged elastic band
-  calculations with Machine Learning.
+I can do the following things:
 
-### How do I get set up? ###
+* NEB acceleration. 
+* Split trajectory files. 
+* Force integration. 
+
+### OK amp-utils, How do I get set up? ###
 
 You need to install the following software:
 
@@ -16,8 +19,16 @@ You need to install the following software:
 - ASE.
 - Scikit-learn.
 
-Instead of messing up your .bashrc or .zshrc, you can add the following in your
-script to import this class:
+Clone this repo: 
+
+
+```
+git clone https://github.com/muammar/amp-utils
+
+``` 
+
+Instead of messing up your `.bashrc` or `.zshrc`, you can add the following in your
+python scripts to import this class:
 
 ```
 import sys
@@ -26,6 +37,9 @@ sys.path.append('PATH/TO/amp-utils/')
 
 ### Be nice
 
-If you use these scripts, cite it :)
+If you use these scripts, cite this repo :)
 
 M. El Khatib, "amp-utils: atomistic machine learning utilities". DOI:
+
+If you see an error, please [report it here ](https://github.com/muammar/amp-utils/issues). 
+Pull requests are more than welcome. 
