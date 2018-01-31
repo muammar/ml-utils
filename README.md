@@ -39,7 +39,8 @@ sys.path.append('PATH/TO/amp-utils/')
 
 If you use these scripts, cite this repo :)
 
-M. El Khatib, "amp-utils: atomistic machine learning utilities". DOI:
+M. El Khatib, "amp-utils: atomistic machine learning utilities". [![DOI](https://zenodo.org/badge/119721081.svg)](https://zenodo.org/badge/latestdoi/119721081)
+
 
 If you see an error, please [report it here ](https://github.com/muammar/amp-utils/issues). 
 Pull requests are more than welcome. 
