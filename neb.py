@@ -47,7 +47,7 @@ class accelerate_neb(object):
         Path to create logfile.
     metric : str
         By default the metric is fmax as computed in ase/neb.py. Other
-        possibilities are MAE.
+        possibility is MAE.
     maxrunsteps : int
         Maximum number of times that .run will execute a band optimization.
     previous_nebfile : bool
@@ -719,7 +719,7 @@ class accelerate_neb(object):
                                '%s\n' % (float(f_metric), self.tolerance))
             return e_metric, f_metric
 
-        elif metric is not 'fmax':
+        elif metric.lower() is 'mae':
 
             e_metric = mean_absolute_error(dft_energies, amp_energies)
             f_metric = mean_absolute_error(dft_forces, amp_forces)
