@@ -1,0 +1,79 @@
+NEB acceleration restarted
+The optimizer used for the NEB calculation is BFGS
+The metric chosen is fmax 
+Iteration 0 
+Number images to slice from NEB Trajectory is -7. 
+New training set lenght is 7. 
+Starting Training, sit tight... 
+Training process finished. 
+Step = 2.0, ifmax = 1.0, fmax = 0.05 
+Starting ML-NEB calculation... Go, and grab a cup of coffee :) 
+Calculator set for 7 images
+Cleaning up...
+Cleaning up...
+ML-NEB calculation finished... \o/ 
+New guessed ML-MEP was read from neb_0.traj 
+Length of NEB images 7 
+fmax achieved is 0.861974302616, tolerance requested is 0.05
+Cleaning up...
+Iteration 1 
+Step = 2.0, new ifmax = 0.5 
+INITIAL
+I added 5 more images to the trainingset 
+Length of training set is now 12.
+Calculator set for 7 images
+Cleaning up...
+Cleaning up...
+Length of NEB images 7 
+fmax achieved is 0.48270558745, tolerance requested is 0.05
+Cleaning up...
+Iteration 2 
+Step = 2.0, new ifmax = 0.25 
+Previous NEB Trajectory read from neb_1.traj
+I added 5 more images to the trainingset
+Length of training set is now 17.
+Calculator set for 7 images
+Cleaning up...
+Cleaning up...
+Length of NEB images 7 
+fmax achieved is 0.246276584811, tolerance requested is 0.05
+Cleaning up...
+Iteration 3 
+Step = 2.0, new ifmax = 0.125 
+Previous NEB Trajectory read from neb_2.traj
+I added 5 more images to the trainingset
+Length of training set is now 22.
+Calculator set for 7 images
+Cleaning up...
+Cleaning up...
+Length of NEB images 7 
+fmax achieved is 0.102001231351, tolerance requested is 0.05
+Cleaning up...
+Iteration 4 
+Step = 2.0, new ifmax = 0.0625 
+Previous NEB Trajectory read from neb_3.traj
+I added 5 more images to the trainingset
+Length of training set is now 27.
+Calculator set for 7 images
+Cleaning up...
+Cleaning up...
+Length of NEB images 7 
+fmax achieved is 0.0594672437495, tolerance requested is 0.05
+Cleaning up...
+Iteration 5 
+Previous NEB Trajectory read from neb_4.traj
+I added 5 more images to the trainingset
+Length of training set is now 32.
+Calculator set for 7 images
+Cleaning up...
+Cleaning up...
+Length of NEB images 7 
+fmax achieved is 0.041153465087, tolerance requested is 0.05
+Cleaning up...
+Iteration 6 
+
+Calculation converged!
+     fmax = 0.05.
+tolerance = 0.05.
+ Energy error= 0.041153465087.
+ Forces error= 0.041153465087.
