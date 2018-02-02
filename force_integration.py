@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from ase.io import Trajectory
 from amp import Amp
-import numpy as np
+
 
 def force_integration(images, amp_calc=None):
     """Compute force integration over images using pure ML
@@ -23,7 +23,6 @@ def force_integration(images, amp_calc=None):
 
     # Loading Amp calculator
     amp_calc = Amp.load(amp_calc)
-
 
     temp = 0
     for index in range(len(data)):
