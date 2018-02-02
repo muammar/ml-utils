@@ -1,5 +1,5 @@
 import sys
-sys.path.append('/home/muammar/github/amp-utils/')
+sys.path.append('/path/to/ml-utils/')
 
 from neb import accelerate_neb
 from amp import Amp
