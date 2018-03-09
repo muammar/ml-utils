@@ -41,14 +41,15 @@ class GHSG(object):
         hashes = ['6b1ec1314b566b7fd3a01e762bf19f16']
         for hash in hashes:
             print(hash)
-            EN_dict, EN_vector = self.get_atomic_electronegativities(hash, self.calc)
+            EN_dict, EN_vector = self.get_atomic_electronegativities(hash,
+                                                                     self.calc)
 
             image = self.images[hash]
 
             for i, atomi in enumerate(image):
                 for j, atomj in enumerate(image):
                     rij = image.get_distance(i, j)
-                    a = self.Aij(i, j , atomi, atomj, Gamma=Gamma, Jii=Jii,
+                    a = self.Aij(i, j, atomi, atomj, Gamma=Gamma, Jii=Jii,
                                  rij=rij)
                     Aij_matrix.append(a)
 
@@ -73,13 +74,13 @@ class GHSG(object):
             u1 = 0.
             for i, atom in enumerate(image):
                 symbol = atom.symbol
-                ei = Ei[symbol]  #FIXME here there should be a ab inition energy
+                ei = Ei[symbol]
                 xi = EN_dict[(i, symbol)]
                 qi = Q[i]
                 jii = Jii[symbol]
                 gii = Gamma[symbol]
                 u1 += (ei + (xi * qi) + (1 / 2 *
-                      (jii + ((2 * gii) / np.sqrt(np.pi)) * qi ** 2)))
+                       (jii + ((2 * gii) / np.sqrt(np.pi)) * qi ** 2)))
 
             u2 = 0.
             for i, atomi in enumerate(image):
@@ -151,7 +152,6 @@ class GHSG(object):
         gamma = 1 / np.sqrt(gammai + gammaj)
 
         return gamma
-
 
     def get_atomic_electronegativities(self, hash, calc):
         """
