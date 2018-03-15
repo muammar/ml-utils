@@ -34,7 +34,6 @@ class GHSG(object):
 
         Gamma = {'Na': 1.0, 'Cl': 2.0}
         Jii = {'Na': 0.2, 'Cl': 0.1}
-        Ei = {'Na': 1., 'Cl': 2.}
         Aij_matrix = []
 
         hashes = self.images.keys()
@@ -45,6 +44,9 @@ class GHSG(object):
                                                                      self.calc)
 
             image = self.images[hash]
+            E = image.get_potential_energy()
+            print(E)
+            Ei = {'Na': -3.53687931764, 'Cl': -2.88586245501}
 
             for i, atomi in enumerate(image):
                 for j, atomj in enumerate(image):
@@ -79,8 +81,7 @@ class GHSG(object):
                 qi = Q[i]
                 jii = Jii[symbol]
                 gii = Gamma[symbol]
-                u1 += (ei + (xi * qi) + (1 / 2 *
-                       (jii + ((2 * gii) / np.sqrt(np.pi)) * qi ** 2)))
+                u1 += ei + ((xi * qi) + (.5 * (jii + ((2 * gii) / np.sqrt(np.pi))) * qi ** 2))
 
             u2 = 0.
             for i, atomi in enumerate(image):
@@ -94,8 +95,9 @@ class GHSG(object):
 
             u = u1 + u2
 
+            print('Total Energy GHSG: {}' .format(u))
+            #print('Total Energy DFT:  {}' .format(image.get_potential_energy()))
             return u
-            print('Total Energy: {}' .format(u))
 
     def Aij(self, i, j, atomi, atomj, Gamma=None, rij=None, Jii=None):
         """
@@ -189,5 +191,7 @@ if __name__ == '__main__':
     descriptor = Gaussian(Gs=None)
     images = '/home/muammar/Dropbox/NUC/electro/_ok/nacl_en.traj'
     calc = '/home/muammar/Dropbox/NUC/electro/train/nn.amp'
-    GHSG = GHSG(images, descriptor, calc, charge=0.0)
-    GHSG.calculate()
+    GHSG = GHSG(images, descriptor, calc, charge=0)
+    for charge in [0]:
+        GHSG.charge=charge
+        GHSG.calculate()
