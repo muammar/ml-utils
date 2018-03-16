@@ -1,7 +1,7 @@
 import sys
 sys.path.append('/path/to/ml-utils/')
 
-from neb import accelerate_neb
+from mlutils.neb import accelerate_neb
 from amp import Amp
 from amp.descriptor.gaussian import Gaussian
 from amp.model.neuralnetwork import NeuralNetwork

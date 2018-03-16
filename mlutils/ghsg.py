@@ -21,23 +21,27 @@ class GHSG(object):
         Path to amp calculator.
     charge : float
         Charge constrain to perform the Lagrange minimization.
+    Ei : dictionary
+        Dictionaries where keys are (atom.index, atom.symbol) and values are
+        atomic energies from NN.
     """
-    def __init__(self, images, descriptor, calc=None, charge=0):
+    def __init__(self, images, descriptor, calc=None, charge=0, Ei=None,
+                 Gamma=None, Jii=None):
         _images = Trajectory(images)
         self.images = hash_images(_images)
         self.descriptor = descriptor
         self.calc = calc
         self.charge = charge
+        self.Ei = Ei
+        self.Gamma = Gamma
+        self.Jii = Jii
 
     def calculate(self):
         """docstring for calculate"""
 
-        Gamma = {'Na': 1.0, 'Cl': 2.0}
-        Jii = {'Na': 0.2, 'Cl': 0.1}
         Aij_matrix = []
 
         hashes = self.images.keys()
-        hashes = ['6b1ec1314b566b7fd3a01e762bf19f16']
         for hash in hashes:
             print(hash)
             EN_dict, EN_vector = self.get_atomic_electronegativities(hash,
@@ -46,12 +50,11 @@ class GHSG(object):
             image = self.images[hash]
             E = image.get_potential_energy()
             print(E)
-            Ei = {'Na': -3.53687931764, 'Cl': -2.88586245501}
 
             for i, atomi in enumerate(image):
                 for j, atomj in enumerate(image):
                     rij = image.get_distance(i, j)
-                    a = self.Aij(i, j, atomi, atomj, Gamma=Gamma, Jii=Jii,
+                    a = self.Aij(i, j, atomi, atomj, Gamma=self.Gamma, Jii=self.Jii,
                                  rij=rij)
                     Aij_matrix.append(a)
 
@@ -76,11 +79,11 @@ class GHSG(object):
             u1 = 0.
             for i, atom in enumerate(image):
                 symbol = atom.symbol
-                ei = Ei[symbol]
+                ei = self.Ei[hash][(i, symbol)]
                 xi = EN_dict[(i, symbol)]
                 qi = Q[i]
-                jii = Jii[symbol]
-                gii = Gamma[symbol]
+                jii = self.Jii[symbol]
+                gii = self.Gamma[symbol]
                 u1 += ei + ((xi * qi) + (.5 * (jii + ((2 * gii) / np.sqrt(np.pi))) * qi ** 2))
 
             u2 = 0.
@@ -90,7 +93,7 @@ class GHSG(object):
                         qi = Q[i]
                         qj = Q[j]
                         rij = image.get_distance(i, j)
-                        gamma = self.get_gamma(atomi, atomj, Gamma)
+                        gamma = self.get_gamma(atomi, atomj, self.Gamma)
                         u2 += (qi * qj) * ((erf(gamma * rij) / rij))
 
             u = u1 + u2
@@ -185,13 +188,3 @@ class GHSG(object):
         electronegativity_vector = np.array(electronegativity_vector)
 
         return atomic_electronegativity, electronegativity_vector
-
-if __name__ == '__main__':
-    from amp.descriptor.gaussian import Gaussian
-    descriptor = Gaussian(Gs=None)
-    images = '/home/muammar/Dropbox/NUC/electro/_ok/nacl_en.traj'
-    calc = '/home/muammar/Dropbox/NUC/electro/train/nn.amp'
-    GHSG = GHSG(images, descriptor, calc, charge=0)
-    for charge in [0]:
-        GHSG.charge=charge
-        GHSG.calculate()
