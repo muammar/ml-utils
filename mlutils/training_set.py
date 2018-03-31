@@ -24,10 +24,10 @@ def split(images, trainingname='trainingimages.traj',
     images = Trajectory(images)
 
     total_length = len(images)
-    test_length = (test_set * total_length / 100)
-    training_leght = total_length - test_length
+    test_length = int((test_set * total_length / 100))
+    training_leght = int(total_length - test_length)
 
-    _images = range(len(images))
+    _images = list(range(len(images)))
 
     if shuffle is True:
         random.shuffle(_images)

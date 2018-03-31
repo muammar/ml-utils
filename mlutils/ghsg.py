@@ -13,48 +13,60 @@ class GHSG(object):
 
     Parameters
     ----------
-    images : str
-        Path to ASE trajectory file.
+    images : str, obj
+        Path to ASE trajectory file, or Atoms object.
     descriptor : object
         Descriptor object created by Amp.
     calc : str
         Path to amp calculator.
-    charge : float
+    charge : float, or list
         Charge constrain to perform the Lagrange minimization.
     Ei : dictionary
         Dictionaries where keys are (atom.index, atom.symbol) and values are
         atomic energies from NN.
     """
-    def __init__(self, images, descriptor, calc=None, charge=0, Ei=None,
-                 Gamma=None, Jii=None):
-        _images = Trajectory(images)
-        self.images = hash_images(_images)
+    def __init__(self, images, descriptor, calc=None, charge=None, Ei=None,
+                 Alpha=None, Jii=None):
+
+        images = Trajectory(images)
+        self.images = hash_images(images)
         self.descriptor = descriptor
         self.calc = calc
         self.charge = charge
         self.Ei = Ei
-        self.Gamma = Gamma
+        self.Alpha = Alpha
         self.Jii = Jii
+
+        if self.charge is None:
+            self.training = True
+        else:
+            self.training = False
 
     def calculate(self):
         """docstring for calculate"""
-
-        Aij_matrix = []
-
         hashes = self.images.keys()
-        for hash in hashes:
+        targets = []
+        predictions = []
+
+        for index, hash in enumerate(hashes):
+            Aij_matrix = []
             print(hash)
             EN_dict, EN_vector = self.get_atomic_electronegativities(hash,
                                                                      self.calc)
 
             image = self.images[hash]
+
+            if self.training:
+                self.charge = image.get_ne()
+
             E = image.get_potential_energy()
+            targets.append(E)
             print(E)
 
             for i, atomi in enumerate(image):
                 for j, atomj in enumerate(image):
                     rij = image.get_distance(i, j)
-                    a = self.Aij(i, j, atomi, atomj, Gamma=self.Gamma, Jii=self.Jii,
+                    a = self.Aij(i, j, atomi, atomj, Alpha=self.Alpha, Jii=self.Jii,
                                  rij=rij)
                     Aij_matrix.append(a)
 
@@ -79,12 +91,16 @@ class GHSG(object):
             u1 = 0.
             for i, atom in enumerate(image):
                 symbol = atom.symbol
-                ei = self.Ei[hash][(i, symbol)]
+                try:
+                    ei = self.Ei[hash][(i, symbol)]
+                except KeyError:
+                    ei = self.Ei[symbol]
+
                 xi = EN_dict[(i, symbol)]
                 qi = Q[i]
-                jii = self.Jii[symbol]
-                gii = self.Gamma[symbol]
-                u1 += ei + ((xi * qi) + (.5 * (jii + ((2 * gii) / np.sqrt(np.pi))) * qi ** 2))
+                jii = self.Jii[(i, symbol)]
+                gii = self.get_gamma(atomi, atomj, self.Alpha)
+                u1 += ei + (xi * qi) + (.5 * (jii + (2 * gii / np.sqrt(np.pi))) * np.square(qi))
 
             u2 = 0.
             for i, atomi in enumerate(image):
@@ -93,16 +109,17 @@ class GHSG(object):
                         qi = Q[i]
                         qj = Q[j]
                         rij = image.get_distance(i, j)
-                        gamma = self.get_gamma(atomi, atomj, self.Gamma)
+                        gamma = self.get_gamma(atomi, atomj, self.Alpha)
                         u2 += (qi * qj) * ((erf(gamma * rij) / rij))
 
             u = u1 + u2
 
             print('Total Energy GHSG: {}' .format(u))
+            predictions.append(u)
             #print('Total Energy DFT:  {}' .format(image.get_potential_energy()))
-            return u
+        return predictions, targets
 
-    def Aij(self, i, j, atomi, atomj, Gamma=None, rij=None, Jii=None):
+    def Aij(self, i, j, atomi, atomj, Alpha=None, rij=None, Jii=None):
         """
         Parameters
         ----------
@@ -114,7 +131,7 @@ class GHSG(object):
             Atom object of central atom.
         atomj : object
             Atom object of neighbor atom.
-        Gamma : dict
+        Alpha : dict
             Dictionary with gaussian width per atom.
         rij : float
             Distance between atom i and j.
@@ -127,15 +144,15 @@ class GHSG(object):
             Matrix element aij.
 
         """
-        gamma = self.get_gamma(atomi, atomj, Gamma)
+        gamma = self.get_gamma(atomi, atomj, Alpha)
 
         if i == j:
-            aij = Jii[atomi.symbol] + (2 * gamma / np.sqrt(np.pi))
+            aij = Jii[(atomi.index, atomi.symbol)] + (2 * gamma / np.sqrt(np.pi))
         else:
             aij = erf(gamma * rij) / rij
         return aij
 
-    def get_gamma(self, atomi, atomj, Gamma):
+    def get_gamma(self, atomi, atomj, Alpha):
         """
         Parameters
         ----------
@@ -143,7 +160,7 @@ class GHSG(object):
             Atom object of central atom.
         atomj : object
             Atom object of neighbor atom.
-        Gamma : dict
+        Alpha : dict
             Dictionary with gaussian width per atom.
 
         Returns
@@ -151,8 +168,8 @@ class GHSG(object):
         gamma : float
             Value of gammaij
         """
-        gammai = np.square(Gamma[atomi.symbol])
-        gammaj = np.square(Gamma[atomj.symbol])
+        gammai = np.square(Alpha[(atomi.index, atomi.symbol)])
+        gammaj = np.square(Alpha[(atomj.index, atomj.symbol)])
 
         gamma = 1 / np.sqrt(gammai + gammaj)
 
@@ -183,7 +200,7 @@ class GHSG(object):
         for index, (symbol, afp) in enumerate(fingerprints):
             en = nn_calc.model.calculate_atomic_energy(afp, index, symbol)
             atomic_electronegativity[(index, symbol)] = en
-            electronegativity_vector.append(en)
+            electronegativity_vector.append(-en)
 
         electronegativity_vector = np.array(electronegativity_vector)
 
