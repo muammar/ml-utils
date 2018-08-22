@@ -5,7 +5,8 @@ import random
 
 
 def split(images, trainingname='trainingimages.traj',
-          testname='testimages.traj', shuffle=True, test_set=20):
+          testname='testimages.traj', shuffle=True, test_set=20,
+          logfile='log.txt'):
     """Split data set in training and test sets.
 
     images : str
@@ -20,6 +21,8 @@ def split(images, trainingname='trainingimages.traj',
         Porcentage of training data that will be used as test set.
     shuffle : bool
         Whether or not the data will be randomized.
+    logfile : str
+        Name of logfile. By default is log.txt.
     """
     images = Trajectory(images)
 
@@ -35,7 +38,7 @@ def split(images, trainingname='trainingimages.traj',
     trainingimages = []
     ti = Trajectory(trainingname, mode='w')
 
-    log = open('log.txt', 'w')
+    log = open(logfile, 'w')
 
     for i in _images[0:training_leght]:
         trainingimages.append(i)
